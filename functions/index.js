@@ -3,36 +3,12 @@ const { getAuth } = require('firebase-admin/auth');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onDocumentWritten } = require('firebase-functions/v2/firestore');
-const cors = require('cors');
 
 initializeApp();
 const db = getFirestore();
 const auth = getAuth();
 
 const ALLOWED_ROLES = ['admin', 'supervisor', 'asesor'];
-const ALLOWED_ORIGINS = [
-  'https://gestion-sots.web.app',
-  'http://localhost:5173',
-];
-const corsHandler = cors({
-  origin: ALLOWED_ORIGINS,
-  methods: ['POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
-});
-
-function applyCors(request) {
-  return new Promise((resolve, reject) => {
-    if (!request?.rawRequest || !request?.rawResponse) {
-      resolve();
-      return;
-    }
-    corsHandler(request.rawRequest, request.rawResponse, (err) => {
-      if (err) reject(err);
-      else resolve();
-    });
-  });
-}
 
 function metricDocIdForContractor(contratista) {
   const c = String(contratista ?? '').trim().toLowerCase();
@@ -86,15 +62,11 @@ async function applyMetricDelta(docId, delta) {
 exports.createUserWithProfile = onCall(
   {
     region: 'us-central1',
-    cors: ALLOWED_ORIGINS,
+    // En callable functions, Firebase gestiona automáticamente preflight/CORS.
+    // true evita rechazos por origen al usar httpsCallable desde web.app y localhost.
+    cors: true,
   },
   async (request) => {
-    await applyCors(request);
-    if (request?.rawRequest?.method === 'OPTIONS') {
-      request.rawResponse.status(204).send('');
-      return;
-    }
-
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Debe iniciar sesión.');
     }
