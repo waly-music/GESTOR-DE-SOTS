@@ -1,0 +1,11 @@
+rules_version = '2';
+// Modo sin Firebase Authentication (VITE_DISABLE_AUTH=true en el front).
+// Cualquiera con la clave del proyecto puede leer/escribir. SOLO para pruebas.
+// Para producción con login: copie firestore.rules.with-auth aquí y despliegue.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
