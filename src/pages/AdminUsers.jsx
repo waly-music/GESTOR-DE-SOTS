@@ -140,20 +140,24 @@ export default function AdminUsers({ embedded = false }) {
       )}
 
       {!isAuthDisabled() && (
-      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <section className="mx-auto w-full max-w-3xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className={`font-medium text-slate-900 ${embedded ? 'text-base' : 'text-lg'}`}>
-          Generar nuevo usuario (correo, contraseña y rol)
+          Configurar perfil de usuario
         </h2>
         <p className="mt-1 text-sm text-slate-600">
-          Requiere desplegar la Cloud Function{' '}
-          <code className="rounded bg-slate-100 px-1">createUserWithProfile</code>{' '}
-          (ver README). Región por defecto:{' '}
-          <code className="rounded bg-slate-100 px-1">us-central1</code>.
+          Complete los datos para crear una nueva cuenta de acceso.
         </p>
         <form
           onSubmit={handleCreate}
-          className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+          className="mt-4 grid gap-4 md:grid-cols-2"
         >
+          <Field
+            label="Nombre"
+            value={createForm.displayName}
+            onChange={(v) =>
+              setCreateForm((f) => ({ ...f, displayName: v }))
+            }
+          />
           <Field
             label="Correo"
             type="email"
@@ -162,23 +166,6 @@ export default function AdminUsers({ embedded = false }) {
             value={createForm.email}
             onChange={(v) =>
               setCreateForm((f) => ({ ...f, email: v }))
-            }
-          />
-          <Field
-            label="Contraseña"
-            type="password"
-            autoComplete="new-password"
-            required
-            value={createForm.password}
-            onChange={(v) =>
-              setCreateForm((f) => ({ ...f, password: v }))
-            }
-          />
-          <Field
-            label="Nombre visible"
-            value={createForm.displayName}
-            onChange={(v) =>
-              setCreateForm((f) => ({ ...f, displayName: v }))
             }
           />
           <div>
@@ -199,9 +186,9 @@ export default function AdminUsers({ embedded = false }) {
               ))}
             </select>
           </div>
-          <div className="sm:col-span-2 lg:col-span-2">
+          <div>
             <label className="block text-xs font-medium text-slate-600">
-              Contratista (opcional; referencia en perfil, no limita el acceso a SOTs)
+              Contratista
             </label>
             <input
               value={createForm.contratista}
@@ -212,20 +199,35 @@ export default function AdminUsers({ embedded = false }) {
                 }))
               }
               disabled={createForm.rol === ROLES.ADMIN}
-              placeholder="Igual que en columna Excel CONTRATISTA"
+              placeholder="Empresa / contratista"
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100"
             />
           </div>
-          <div className="flex items-end sm:col-span-2 lg:col-span-3">
+          <div className="md:col-span-2">
+            <label className="block text-xs font-medium text-slate-600">
+              Contraseña
+            </label>
+            <input
+              type="password"
+              autoComplete="new-password"
+              required
+              value={createForm.password}
+              onChange={(e) =>
+                setCreateForm((f) => ({ ...f, password: e.target.value }))
+              }
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="flex items-end md:col-span-2">
             <button
               type="submit"
               disabled={creating}
-              className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
             >
               {creating ? (
                 <Spinner className="h-4 w-4 border-white border-r-transparent" />
               ) : null}
-              Crear usuario
+              {creating ? 'Guardando...' : 'Guardar perfil'}
             </button>
           </div>
         </form>
@@ -361,7 +363,7 @@ function mapCallableError(code, message) {
     message.includes('NOT_FOUND') ||
     message.includes('no se encontró')
   ) {
-    return 'La función no está desplegada. Ejecute: firebase deploy --only functions';
+    return 'No se pudo completar la acción. Contacte con el administrador.';
   }
-  return message;
+  return 'No se pudo completar la acción. Intente nuevamente.';
 }

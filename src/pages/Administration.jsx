@@ -42,9 +42,7 @@ export default function Administration() {
             Usuarios del sistema
           </h2>
           <p className="mb-4 text-sm text-slate-600">
-            Cree cuentas con correo y contraseña (requiere Cloud Function{' '}
-            <code className="rounded bg-slate-100 px-1">createUserWithProfile</code>{' '}
-            desplegada) o edite rol y contratista.
+            Cree cuentas con correo y contraseña, o edite rol y contratista.
           </p>
           <AdminUsers embedded />
         </section>

@@ -23,26 +23,39 @@ export function ProtectedRoute({ children, roles }) {
   if (!profile) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-6 text-center">
-        <p className="max-w-md text-slate-700">
+        <div className="max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           {isAuthDisabled() ? (
-            <>No se pudo cargar el perfil local. Recargue la página.</>
+            <p className="text-slate-700">No se pudo cargar tu perfil local. Recarga la página.</p>
           ) : profileError === 'permission' ? (
             <>
-              No se pudo leer <code className="rounded bg-slate-200 px-1">users/{user?.uid}</code>{' '}
-              en Firestore (permiso denegado). Revise reglas y que el proyecto coincida con la consola.
+              <p className="font-semibold text-slate-900">No tienes acceso al perfil</p>
+              <p className="mt-2 text-sm text-slate-600">
+                Contacta con el administrador para revisar tus permisos.
+              </p>
             </>
           ) : profileError === 'network' ? (
-            <>Error de red al cargar el perfil. Intente de nuevo.</>
+            <>
+              <p className="font-semibold text-slate-900">No pudimos cargar tu perfil</p>
+              <p className="mt-2 text-sm text-slate-600">
+                Verifica tu conexión e inténtalo nuevamente.
+              </p>
+            </>
           ) : profileError === 'unknown' ? (
-            <>Error al cargar el perfil. Revise la consola (F12).</>
+            <>
+              <p className="font-semibold text-slate-900">Error al cargar tu perfil</p>
+              <p className="mt-2 text-sm text-slate-600">
+                Intenta de nuevo en unos segundos o contacta con soporte.
+              </p>
+            </>
           ) : (
             <>
-              No existe un perfil para este usuario en Firestore. Cree el documento{' '}
-              <code className="rounded bg-slate-200 px-1">users/{user?.uid}</code> con campo{' '}
-              <code className="rounded bg-slate-200 px-1">rol</code> (admin, supervisor o asesor).
+              <p className="font-semibold text-slate-900">No tienes perfil configurado</p>
+              <p className="mt-2 text-sm text-slate-600">
+                Contacta con el administrador para activar tu acceso.
+              </p>
             </>
           )}
-        </p>
+        </div>
       </div>
     );
   }

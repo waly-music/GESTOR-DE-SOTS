@@ -3,10 +3,10 @@ import {
   collection,
   doc,
   documentId,
+  getDoc,
   getCountFromServer,
   getDocs,
   limit,
-  onSnapshot,
   orderBy,
   query,
   runTransaction,
@@ -20,6 +20,7 @@ import { mergeFiltrosFromExcelRows } from './filtrosService';
 import { chunkArray } from '../utils/chunk';
 import { mapExcelGestionToTipo } from '../utils/excelGestionMap';
 import { normalizeSotDisplay, sotToDocId } from '../utils/sotId';
+import { profileRol } from '../utils/roles';
 
 /** Colección principal de órdenes SOT en Firestore. */
 const COL = 'sots';
@@ -64,7 +65,7 @@ export async function countQuery(q) {
 }
 
 /**
- * Lectura por lotes de documentos por ID (máx. 10 por consulta `in`).
+ * Lectura por lotes de documentos por ID (máx. 30 por consulta `in`).
  * @param {string[]} docIds
  * @param {(done: number, total: number) => void} [onProgress]
  */
@@ -207,7 +208,7 @@ export async function importExcelRows(rows, onProgress) {
 }
 
 /**
- * @param {unknown} _profile reservado (sin filtro por perfil; el contratista del Excel es solo dato)
+ * @param {{ rol?: string, contratista?: string|null } | null | undefined} profile
  * @param {{
  *   region?: string,
  *   departamento?: string,
@@ -216,9 +217,24 @@ export async function importExcelRows(rows, onProgress) {
  *   searchSot?: string,
  * }} filters
  */
-export function buildOrdenesQuery(_profile, filters, pageSize = 25, cursor = null) {
-  void _profile;
+export function buildOrdenesQuery(profile, filters, pageSize = 25, cursor = null) {
   const constraints = [];
+  const rol = profileRol(profile);
+  const contractor = String(profile?.contratista ?? '').trim();
+
+  // Reducción de costos: asesor/supervisor consultan solo su contratista.
+  if (rol === 'asesor' || rol === 'supervisor') {
+    if (contractor) {
+      constraints.push(where('contratista', '==', contractor));
+    } else {
+      // Evita lecturas amplias si el perfil no tiene contratista asignado.
+      constraints.push(where('contratista', '==', '__UNASSIGNED__'));
+    }
+  }
+  // Asesor: solo tickets pendientes/sin gestión.
+  if (rol === 'asesor') {
+    constraints.push(where('tieneGestion', '==', false));
+  }
 
   if (filters.region) {
     constraints.push(where('region', '==', filters.region));
@@ -252,38 +268,61 @@ export function buildOrdenesQuery(_profile, filters, pageSize = 25, cursor = nul
 }
 
 /**
- * Suscripción en tiempo real a la página actual.
- * Nota: requiere índices compuestos si combina filtros + orderBy.
+ * Lectura bajo demanda (sin realtime global) para reducir costos de Firestore.
  * @param {import('firebase/firestore').Query} q
- * @param {(docs: import('firebase/firestore').QuerySnapshot) => void} onNext
  */
-export function subscribeQuery(q, onNext, onError) {
-  return onSnapshot(q, onNext, onError);
+export async function fetchQueryPage(q) {
+  return getDocs(q);
 }
 
 /**
- * @param {unknown} _profile reservado (métricas globales para admin/supervisor)
+ * @param {{ rol?: string, contratista?: string|null } | null | undefined} profile
  */
-export async function getDashboardMetrics(_profile) {
-  void _profile;
-  const base = collection(db, COL);
+export async function getDashboardMetrics(profile) {
+  const rol = profileRol(profile);
+  const contractor = String(profile?.contratista ?? '').trim();
 
-  const total = await countQuery(query(base));
+  // Métricas agregadas (1 lectura) para minimizar costo.
+  const metricDocId =
+    rol === 'supervisor' && contractor
+      ? `contratista_${contractor.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`
+      : 'global';
+  const metricRef = doc(db, 'metricas', metricDocId);
+  const metricSnap = await getDoc(metricRef);
+  if (metricSnap.exists()) {
+    const m = metricSnap.data() ?? {};
+    return {
+      total: Number(m.total ?? 0),
+      gestionadas: Number(m.gestionadas ?? 0),
+      confirmadoHoy: Number(m.confirmadoHoy ?? 0),
+      confirmadoFuturo: Number(m.confirmadoFuturo ?? 0),
+      rechazos: Number(m.rechazos ?? 0),
+    };
+  }
+
+  // Fallback si aún no existe colección agregada.
+  const base = collection(db, COL);
+  const contractorWhere =
+    rol === 'supervisor' && contractor
+      ? [where('contratista', '==', contractor)]
+      : [];
+
+  const total = await countQuery(query(base, ...contractorWhere));
 
   const gestionadas = await countQuery(
-    query(base, where('tieneGestion', '==', true)),
+    query(base, ...contractorWhere, where('tieneGestion', '==', true)),
   );
 
   const confirmadoHoy = await countQuery(
-    query(base, where('gestionTipo', '==', 'CONFIRMADO_HOY')),
+    query(base, ...contractorWhere, where('gestionTipo', '==', 'CONFIRMADO_HOY')),
   );
 
   const confirmadoFuturo = await countQuery(
-    query(base, where('gestionTipo', '==', 'CONFIRMADO_FUTURO')),
+    query(base, ...contractorWhere, where('gestionTipo', '==', 'CONFIRMADO_FUTURO')),
   );
 
   const rechazos = await countQuery(
-    query(base, where('gestionTipo', '==', 'RECHAZO')),
+    query(base, ...contractorWhere, where('gestionTipo', '==', 'RECHAZO')),
   );
 
   return {
@@ -324,7 +363,8 @@ export async function saveGestion(ordenId, gestion, actor) {
       },
       usuarioId: actor.uid,
       usuarioEmail: actor.email ?? '',
-      timestamp: serverTimestamp(),
+      // Firestore no admite FieldValue.serverTimestamp() dentro de arrays.
+      timestamp: new Date().toISOString(),
     };
 
     const historial = Array.isArray(data.historial) ? [...data.historial] : [];

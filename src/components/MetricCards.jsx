@@ -5,7 +5,7 @@ export function MetricCards({ metrics, loading, onRefresh }) {
         {[1, 2, 3, 4, 5].map((i) => (
           <div
             key={i}
-            className="h-24 animate-pulse rounded-xl bg-slate-200"
+            className="h-24 animate-pulse rounded-2xl border border-slate-200 bg-white"
           />
         ))}
       </div>
@@ -14,7 +14,11 @@ export function MetricCards({ metrics, loading, onRefresh }) {
 
   const items = [
     { label: 'Total SOTs', value: metrics?.total ?? 0, tone: 'slate' },
-    { label: 'Gestionadas', value: metrics?.gestionadas ?? 0, tone: 'blue' },
+    {
+      label: 'Pendientes',
+      value: Math.max((metrics?.total ?? 0) - (metrics?.gestionadas ?? 0), 0),
+      tone: 'amber',
+    },
     {
       label: 'Confirmado hoy',
       value: metrics?.confirmadoHoy ?? 0,
@@ -30,9 +34,9 @@ export function MetricCards({ metrics, loading, onRefresh }) {
 
   const toneRing = {
     slate: 'ring-slate-200',
-    blue: 'ring-blue-200',
+    amber: 'ring-amber-200',
     emerald: 'ring-emerald-200',
-    teal: 'ring-teal-200',
+    teal: 'ring-green-200',
     red: 'ring-red-200',
   };
 
@@ -42,7 +46,7 @@ export function MetricCards({ metrics, loading, onRefresh }) {
         <button
           type="button"
           onClick={onRefresh}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+          className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
         >
           Actualizar métricas
         </button>
@@ -51,7 +55,7 @@ export function MetricCards({ metrics, loading, onRefresh }) {
         {items.map((it) => (
           <div
             key={it.label}
-            className={`rounded-xl border border-slate-100 bg-white p-4 shadow-sm ring-1 ${toneRing[it.tone]}`}
+            className={`rounded-2xl border border-slate-100 bg-white p-4 shadow-sm ring-1 ${toneRing[it.tone]}`}
           >
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
               {it.label}

@@ -2,6 +2,7 @@ const { initializeApp } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onDocumentWritten } = require('firebase-functions/v2/firestore');
 const cors = require('cors');
 
 initializeApp();
@@ -33,6 +34,51 @@ function applyCors(request) {
   });
 }
 
+function metricDocIdForContractor(contratista) {
+  const c = String(contratista ?? '').trim().toLowerCase();
+  if (!c) return null;
+  return `contratista_${c.replace(/[^a-z0-9]+/g, '_')}`;
+}
+
+function metricVectorFromSot(data) {
+  if (!data) return null;
+  const tipo = String(data.gestionTipo ?? '').trim();
+  return {
+    total: 1,
+    gestionadas: data.tieneGestion ? 1 : 0,
+    confirmadoHoy: tipo === 'CONFIRMADO_HOY' ? 1 : 0,
+    confirmadoFuturo: tipo === 'CONFIRMADO_FUTURO' ? 1 : 0,
+    rechazos: tipo === 'RECHAZO' ? 1 : 0,
+  };
+}
+
+function diffMetricVector(beforeData, afterData) {
+  const b = metricVectorFromSot(beforeData);
+  const a = metricVectorFromSot(afterData);
+  const keys = ['total', 'gestionadas', 'confirmadoHoy', 'confirmadoFuturo', 'rechazos'];
+  const out = {};
+  for (const k of keys) {
+    out[k] = (a?.[k] ?? 0) - (b?.[k] ?? 0);
+  }
+  return out;
+}
+
+async function applyMetricDelta(docId, delta) {
+  if (!docId) return;
+  const ref = db.collection('metricas').doc(docId);
+  await ref.set(
+    {
+      total: FieldValue.increment(delta.total || 0),
+      gestionadas: FieldValue.increment(delta.gestionadas || 0),
+      confirmadoHoy: FieldValue.increment(delta.confirmadoHoy || 0),
+      confirmadoFuturo: FieldValue.increment(delta.confirmadoFuturo || 0),
+      rechazos: FieldValue.increment(delta.rechazos || 0),
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+}
+
 /**
  * Crea usuario en Firebase Auth + documento users/{uid}.
  * Solo invocable por un usuario con rol === admin en Firestore.
@@ -44,6 +90,10 @@ exports.createUserWithProfile = onCall(
   },
   async (request) => {
     await applyCors(request);
+    if (request?.rawRequest?.method === 'OPTIONS') {
+      request.rawResponse.status(204).send('');
+      return;
+    }
 
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Debe iniciar sesión.');
@@ -141,5 +191,43 @@ exports.createUserWithProfile = onCall(
       });
 
     return { uid: userRecord.uid, email: emailStr };
+  },
+);
+
+/**
+ * Mantiene colección agregada `metricas` para dashboard económico:
+ * - metricas/global
+ * - metricas/contratista_<slug>
+ */
+exports.syncSotMetrics = onDocumentWritten(
+  {
+    document: 'sots/{sotId}',
+    region: 'us-central1',
+    retry: true,
+  },
+  async (event) => {
+    const beforeData = event.data.before.exists ? event.data.before.data() : null;
+    const afterData = event.data.after.exists ? event.data.after.data() : null;
+    if (!beforeData && !afterData) return;
+
+    const globalDelta = diffMetricVector(beforeData, afterData);
+    await applyMetricDelta('global', globalDelta);
+
+    const beforeContractor = metricDocIdForContractor(beforeData?.contratista);
+    const afterContractor = metricDocIdForContractor(afterData?.contratista);
+
+    if (beforeContractor && beforeContractor === afterContractor) {
+      await applyMetricDelta(beforeContractor, globalDelta);
+      return;
+    }
+
+    if (beforeContractor) {
+      const removeDelta = diffMetricVector(beforeData, null);
+      await applyMetricDelta(beforeContractor, removeDelta);
+    }
+    if (afterContractor) {
+      const addDelta = diffMetricVector(null, afterData);
+      await applyMetricDelta(afterContractor, addDelta);
+    }
   },
 );

@@ -41,43 +41,17 @@ export default function Login() {
   if (user && !profile) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-slate-100 px-4 text-center">
-        <div className="max-w-md rounded-2xl border border-amber-200 bg-amber-50 p-6 text-amber-950">
-          {profileError === 'permission' ? (
-            <>
-              <p className="font-medium">No se pudo leer el perfil en Firestore</p>
-              <p className="mt-2 text-sm">
-                Permiso denegado (<code className="rounded bg-amber-100 px-1">permission-denied</code>).
-                Revise las reglas: el usuario debe poder leer{' '}
-                <code className="rounded bg-amber-100 px-1">users/{user.uid}</code> y el
-                proyecto de la app debe ser el mismo que en la consola Firebase.
-              </p>
-            </>
-          ) : profileError === 'network' ? (
-            <>
-              <p className="font-medium">Error de red al cargar el perfil</p>
-              <p className="mt-2 text-sm">
-                No se pudo contactar con Firestore. Compruebe la conexión e intente de nuevo.
-              </p>
-            </>
-          ) : profileError === 'unknown' ? (
-            <>
-              <p className="font-medium">Error al cargar el perfil</p>
-              <p className="mt-2 text-sm">
-                Vea la consola del navegador (F12) para el detalle. UID:{' '}
-                <code className="rounded bg-amber-100 px-1">{user.uid}</code>
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="font-medium">No existe un perfil para este usuario en Firestore</p>
-              <p className="mt-2 text-sm">
-                Cree el documento{' '}
-                <code className="rounded bg-amber-100 px-1">users/{user.uid}</code> con el
-                campo <code className="rounded bg-amber-100 px-1">rol</code> (admin, supervisor
-                o asesor). El ID del documento debe ser exactamente el UID de Authentication.
-              </p>
-            </>
-          )}
+        <div className="max-w-md rounded-2xl border border-amber-200 bg-amber-50 p-6 text-amber-950 shadow-sm">
+          <p className="font-semibold">
+            {profileError === 'network'
+              ? 'No pudimos cargar tu perfil'
+              : 'No tienes perfil configurado'}
+          </p>
+          <p className="mt-2 text-sm">
+            {profileError === 'network'
+              ? 'Verifica tu conexión e inténtalo nuevamente.'
+              : 'Contacta con el administrador para activar tu acceso.'}
+          </p>
         </div>
       </div>
     );
@@ -126,7 +100,7 @@ export default function Login() {
           Gestión SOT
         </h1>
         <p className="mt-1 text-center text-sm text-slate-600">
-          Inicie sesión con correo y contraseña (Firebase Authentication)
+          Inicia sesión para continuar
         </p>
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>

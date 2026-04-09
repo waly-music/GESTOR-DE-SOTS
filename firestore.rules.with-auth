@@ -68,6 +68,11 @@ service cloud.firestore {
       allow write: if isAdmin() || isSupervisor();
     }
 
+    match /metricas/{docId} {
+      allow read: if signedIn() && canReadAllSots();
+      allow write: if false;
+    }
+
     match /sots/{id} {
       allow read: if signedIn() && canReadAllSots();
       allow create: if isAdmin() || isSupervisor();

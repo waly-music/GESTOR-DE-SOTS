@@ -1,24 +1,42 @@
+import { Suspense, lazy } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ROLES } from './constants/gestion';
 import { Layout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Administration from './pages/Administration';
+import { Spinner } from './components/Spinner';
+
+const Login = lazy(() => import('./pages/Login'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Administration = lazy(() => import('./pages/Administration'));
 
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/login" element={<Login />} />
+          <Route
+            path="/login"
+            element={
+              <Suspense
+                fallback={
+                  <div className="flex min-h-screen items-center justify-center">
+                    <Spinner />
+                  </div>
+                }
+              >
+                <Login />
+              </Suspense>
+            }
+          />
           <Route
             path="/"
             element={
               <ProtectedRoute>
                 <Layout>
-                  <Dashboard />
+                  <Suspense fallback={<Spinner />}>
+                    <Dashboard />
+                  </Suspense>
                 </Layout>
               </ProtectedRoute>
             }
@@ -28,7 +46,9 @@ export default function App() {
             element={
               <ProtectedRoute roles={[ROLES.ADMIN, ROLES.SUPERVISOR]}>
                 <Layout>
-                  <Administration />
+                  <Suspense fallback={<Spinner />}>
+                    <Administration />
+                  </Suspense>
                 </Layout>
               </ProtectedRoute>
             }

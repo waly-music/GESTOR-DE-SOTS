@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ExcelUpload } from '../components/ExcelUpload';
@@ -7,14 +7,15 @@ import {
   canViewGlobalMetrics,
   isAdmin,
 } from '../utils/roles';
-import { useDashboardMetrics } from '../hooks/useDashboardMetrics';
-import { useOrdenesPage } from '../hooks/useOrdenesPage';
 import { fetchAllOrdenesForExport } from '../services/ordenesService';
-import { getFiltrosOptions } from '../services/filtrosService';
 import { exportRowsToExcel } from '../utils/excelParser';
 import { GestionModal } from '../components/GestionModal';
 import { MetricCards } from '../components/MetricCards';
 import { OrdersTable } from '../components/OrdersTable';
+import { DashboardCharts } from '../components/DashboardCharts';
+import { useSotsSeed } from '../hooks/useSotsSeed';
+
+const STORAGE_FILTERS_KEY = 'sot_dashboard_filters_v2';
 
 function fechaCitaIso(o) {
   const f = o.gestion?.fecha;
@@ -58,22 +59,33 @@ function buildExportRows(list) {
 
 export default function Dashboard() {
   const { profile } = useAuth();
-  const [filtrosMeta, setFiltrosMeta] = useState({
-    regions: [],
-    departamentos: [],
-    distritos: [],
-    contratistas: [],
-  });
-  const [filters, setFilters] = useState({
-    region: '',
-    departamento: '',
-    distrito: '',
-    contratista: '',
-    searchSot: '',
+  const [filters, setFilters] = useState(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_FILTERS_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        return {
+          region: saved.region ?? '',
+          departamento: saved.departamento ?? '',
+          distrito: saved.distrito ?? '',
+          contratista: saved.contratista ?? '',
+          searchSot: saved.searchSot ?? '',
+        };
+      }
+    } catch {
+      // ignore
+    }
+    return {
+      region: '',
+      departamento: '',
+      distrito: '',
+      contratista: '',
+      searchSot: '',
+    };
   });
   const [modalOrden, setModalOrden] = useState(null);
   const [exporting, setExporting] = useState(false);
-  const [filtrosTick, setFiltrosTick] = useState(0);
+  const [searchDebounced, setSearchDebounced] = useState(filters.searchSot);
 
   const profileForQuery = useMemo(
     () =>
@@ -83,43 +95,147 @@ export default function Dashboard() {
     [profile],
   );
 
-  const ordenes = useOrdenesPage(profileForQuery, filters);
-  const metrics = useDashboardMetrics(
-    canViewGlobalMetrics(profile) ? profileForQuery : null,
-  );
-
-  const loadFiltros = useCallback(() => {
-    getFiltrosOptions().then(setFiltrosMeta).catch(console.error);
-  }, []);
+  const seed = useSotsSeed(profileForQuery);
 
   useEffect(() => {
-    loadFiltros();
-  }, [loadFiltros, filtrosTick]);
+    const t = setTimeout(() => {
+      setSearchDebounced(filters.searchSot || '');
+    }, 250);
+    return () => clearTimeout(t);
+  }, [filters.searchSot]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_FILTERS_KEY, JSON.stringify(filters));
+  }, [filters]);
+
+  const options = useMemo(() => {
+    const regions = new Set(seed.rows.map((x) => x.region).filter(Boolean));
+    const departamentos = new Set(
+      seed.rows
+        .filter((x) => !filters.region || x.region === filters.region)
+        .map((x) => x.departamento)
+        .filter(Boolean),
+    );
+    const distritos = new Set(
+      seed.rows
+        .filter(
+          (x) =>
+            (!filters.region || x.region === filters.region) &&
+            (!filters.departamento || x.departamento === filters.departamento),
+        )
+        .map((x) => x.distrito)
+        .filter(Boolean),
+    );
+    const contratistas = new Set(
+      seed.rows
+        .filter(
+          (x) =>
+            (!filters.region || x.region === filters.region) &&
+            (!filters.departamento || x.departamento === filters.departamento) &&
+            (!filters.distrito || x.distrito === filters.distrito),
+        )
+        .map((x) => x.contratista)
+        .filter(Boolean),
+    );
+    return {
+      regions: [...regions].sort((a, b) => a.localeCompare(b)),
+      departamentos: [...departamentos].sort((a, b) => a.localeCompare(b)),
+      distritos: [...distritos].sort((a, b) => a.localeCompare(b)),
+      contratistas: [...contratistas].sort((a, b) => a.localeCompare(b)),
+    };
+  }, [
+    seed.rows,
+    filters.region,
+    filters.departamento,
+    filters.distrito,
+  ]);
+
+  const rowsFiltered = useMemo(
+    () =>
+      seed.rows.filter((item) => {
+        const matchesSot =
+          !searchDebounced ||
+          String(item.sot ?? '')
+            .toLowerCase()
+            .includes(searchDebounced.toLowerCase());
+        return (
+          (!filters.region || item.region === filters.region) &&
+          (!filters.departamento || item.departamento === filters.departamento) &&
+          (!filters.distrito || item.distrito === filters.distrito) &&
+          (!filters.contratista || item.contratista === filters.contratista) &&
+          matchesSot
+        );
+      }),
+    [
+      seed.rows,
+      filters.region,
+      filters.departamento,
+      filters.distrito,
+      filters.contratista,
+      searchDebounced,
+    ],
+  );
+
+  const localMetrics = useMemo(() => {
+    const total = rowsFiltered.length;
+    const gestionadas = rowsFiltered.filter((d) => Boolean(d.tieneGestion)).length;
+    const confirmadoHoy = rowsFiltered.filter(
+      (d) => (d.gestionTipo ?? d.gestion?.tipoGestion) === 'CONFIRMADO_HOY',
+    ).length;
+    const confirmadoFuturo = rowsFiltered.filter(
+      (d) => (d.gestionTipo ?? d.gestion?.tipoGestion) === 'CONFIRMADO_FUTURO',
+    ).length;
+    const rechazos = rowsFiltered.filter(
+      (d) => (d.gestionTipo ?? d.gestion?.tipoGestion) === 'RECHAZO',
+    ).length;
+    return { total, gestionadas, confirmadoHoy, confirmadoFuturo, rechazos };
+  }, [rowsFiltered]);
+
+  const activeFilterChips = useMemo(() => {
+    const chips = [];
+    if (filters.region) chips.push({ key: 'region', label: filters.region });
+    if (filters.departamento) {
+      chips.push({ key: 'departamento', label: filters.departamento });
+    }
+    if (filters.distrito) chips.push({ key: 'distrito', label: filters.distrito });
+    if (filters.contratista) {
+      chips.push({ key: 'contratista', label: filters.contratista });
+    }
+    return chips;
+  }, [filters.region, filters.departamento, filters.distrito, filters.contratista]);
 
   const filterFields = (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+    <div className="space-y-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
       <FilterSelect
         label="Región"
         value={filters.region}
-        options={filtrosMeta.regions}
-        onChange={(v) => setFilters((f) => ({ ...f, region: v }))}
+        options={options.regions}
+        onChange={(v) =>
+          setFilters((f) => ({
+            ...f,
+            region: v,
+            departamento: '',
+            distrito: '',
+          }))
+        }
       />
       <FilterSelect
         label="Departamento"
         value={filters.departamento}
-        options={filtrosMeta.departamentos}
-        onChange={(v) => setFilters((f) => ({ ...f, departamento: v }))}
+        options={options.departamentos}
+        onChange={(v) => setFilters((f) => ({ ...f, departamento: v, distrito: '' }))}
       />
       <FilterSelect
         label="Distrito"
         value={filters.distrito}
-        options={filtrosMeta.distritos}
+        options={options.distritos}
         onChange={(v) => setFilters((f) => ({ ...f, distrito: v }))}
       />
       <FilterSelect
         label="Contratista"
         value={filters.contratista}
-        options={filtrosMeta.contratistas}
+        options={options.contratistas}
         onChange={(v) => setFilters((f) => ({ ...f, contratista: v }))}
       />
       <div>
@@ -134,6 +250,45 @@ export default function Dashboard() {
           placeholder="Ej. 12345"
           className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
         />
+      </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        {activeFilterChips.map((chip) => (
+          <button
+            key={chip.key}
+            type="button"
+            onClick={() =>
+              setFilters((f) => ({
+                ...f,
+                [chip.key]: '',
+                ...(chip.key === 'region'
+                  ? { departamento: '', distrito: '' }
+                  : chip.key === 'departamento'
+                    ? { distrito: '' }
+                    : {}),
+              }))
+            }
+            className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700"
+            title="Quitar filtro"
+          >
+            {chip.label} ✕
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={() =>
+            setFilters({
+              region: '',
+              departamento: '',
+              distrito: '',
+              contratista: '',
+              searchSot: '',
+            })
+          }
+          className="rounded-lg border border-slate-200 px-3 py-1 text-xs text-slate-700 hover:bg-slate-50"
+        >
+          Limpiar filtros
+        </button>
       </div>
     </div>
   );
@@ -159,26 +314,29 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">
-          Panel de gestión
+          Dashboard de operación SOT
         </h1>
         <p className="mt-1 text-slate-600">
-          Órdenes de trabajo para instalación de internet — vista en tiempo real.
+          Gestión productiva para call center: filtros rápidos, métricas y acciones sin recargas.
         </p>
       </div>
 
       {canViewGlobalMetrics(profile) && (
         <MetricCards
-          metrics={metrics.metrics}
-          loading={metrics.loading}
-          onRefresh={metrics.refresh}
+          metrics={localMetrics}
+          loading={seed.loading}
+          onRefresh={seed.reload}
         />
+      )}
+      {canViewGlobalMetrics(profile) && (
+        <DashboardCharts rows={rowsFiltered} metrics={localMetrics} />
       )}
 
       {canLoadExcel(profile) && (
-        <section className="space-y-4 rounded-xl border-2 border-brand-500 bg-gradient-to-b from-brand-50/80 to-white p-5 shadow-md">
+        <section className="space-y-4 rounded-2xl border-2 border-brand-500 bg-gradient-to-b from-brand-50/80 to-white p-5 shadow-md">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">
@@ -217,17 +375,16 @@ export default function Dashboard() {
           </div>
           <ExcelUpload
             onDone={() => {
-              metrics.refresh();
-              setFiltrosTick((t) => t + 1);
+              seed.reload();
             }}
           />
         </section>
       )}
 
-      <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <h2 className="text-lg font-medium text-slate-900">
-            Filtros y tabla
+            Gestión de tickets (SOT)
           </h2>
           <button
             type="button"
@@ -242,15 +399,16 @@ export default function Dashboard() {
       </section>
 
       <OrdersTable
-        rows={ordenes.rows}
-        loading={ordenes.loading}
-        error={ordenes.error}
-        pageIndex={ordenes.pageIndex}
-        pageSize={ordenes.pageSize}
-        hasMore={ordenes.hasMore}
-        canPrev={ordenes.canPrev}
-        onPrev={ordenes.goPrev}
-        onNext={ordenes.goNext}
+        rows={rowsFiltered}
+        loading={seed.loading}
+        error={seed.error}
+        pageIndex={0}
+        pageSize={rowsFiltered.length}
+        hasMore={false}
+        canPrev={false}
+        onPrev={() => {}}
+        onNext={() => {}}
+        showPagination={false}
         onGestionar={(o) => setModalOrden(o)}
       />
 
@@ -259,7 +417,7 @@ export default function Dashboard() {
         orden={modalOrden}
         onClose={() => setModalOrden(null)}
         onSaved={() => {
-          if (canViewGlobalMetrics(profile)) metrics.refresh();
+          seed.reload();
         }}
       />
     </div>

@@ -1,8 +1,83 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
+
+    function userPath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    function userData() {
+      return get(userPath()).data;
+    }
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function hasUserDoc() {
+      return exists(userPath());
+    }
+
+    function roleIsAdmin(r) {
+      return r == 'admin' || r == 'Admin' || r == 'ADMIN' ||
+        r == 'administrator' || r == 'Administrator' ||
+        r == 'administrador' || r == 'Administrador' ||
+        r == 'superadmin' || r == 'SuperAdmin';
+    }
+
+    function roleIsSupervisor(r) {
+      return r == 'supervisor' || r == 'Supervisor' || r == 'SUPERVISOR' ||
+        r == 'supervisora' || r == 'Supervisora';
+    }
+
+    function roleIsAsesor(r) {
+      return r == 'asesor' || r == 'Asesor' || r == 'ASESOR' ||
+        r == 'asesora' || r == 'Asesora' || r == 'advisor' || r == 'Advisor';
+    }
+
+    function isAdmin() {
+      let d = userData();
+      return signedIn() && hasUserDoc() && (
+        roleIsAdmin(d.rol) || roleIsAdmin(d.role) || roleIsAdmin(d.Role)
+      );
+    }
+
+    function isSupervisor() {
+      let d = userData();
+      return roleIsSupervisor(d.rol) || roleIsSupervisor(d.role) || roleIsSupervisor(d.Role);
+    }
+
+    function isAsesor() {
+      let d = userData();
+      return roleIsAsesor(d.rol) || roleIsAsesor(d.role) || roleIsAsesor(d.Role);
+    }
+
+    function canReadAllSots() {
+      return hasUserDoc() && (isAdmin() || isSupervisor() || isAsesor());
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create: if signedIn() && request.auth.uid == uid;
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    match /config/{docId} {
+      allow read: if signedIn();
+      allow write: if isAdmin() || isSupervisor();
+    }
+
+    match /metricas/{docId} {
+      allow read: if signedIn() && canReadAllSots();
+      allow write: if false;
+    }
+
+    match /sots/{id} {
+      allow read: if signedIn() && canReadAllSots();
+      allow create: if isAdmin() || isSupervisor();
+      allow update: if isAdmin() || isSupervisor() || isAsesor();
+      allow delete: if false;
     }
   }
 }
