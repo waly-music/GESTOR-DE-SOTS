@@ -72,7 +72,7 @@ export function ExcelUpload({ onDone }) {
         <input
           ref={inputRef}
           type="file"
-          accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+          accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
           className="hidden"
           onChange={handleFile}
           disabled={busy}
@@ -86,11 +86,11 @@ export function ExcelUpload({ onDone }) {
           {busy && !previewRows ? (
             <Spinner className="h-4 w-4 border-white border-r-transparent" />
           ) : null}
-          Cargar Excel
+          Cargar archivo
         </button>
         <p className="text-sm text-slate-600">
           Columnas: SOT, Región, Departamento, Distrito, Contratista y opcionalmente
-          Gestión / Estado. Solo se aceptan archivos .xlsx o .xls.
+          Gestión / Estado. Se aceptan archivos .csv, .xlsx o .xls.
         </p>
       </div>
       {parseErrors && (

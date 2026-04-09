@@ -66,12 +66,15 @@ export async function countQuery(q) {
 /**
  * Lectura por lotes de documentos por ID (máx. 10 por consulta `in`).
  * @param {string[]} docIds
+ * @param {(done: number, total: number) => void} [onProgress]
  */
-export async function fetchOrdenDocsByIds(docIds) {
+export async function fetchOrdenDocsByIds(docIds, onProgress) {
   const unique = [...new Set(docIds)].filter(Boolean);
-  const chunks = chunkArray(unique, 10);
+  // Firestore permite hasta 30 valores en `in`; usar 10 hace esta fase muy lenta.
+  const chunks = chunkArray(unique, 30);
   /** @type {Map<string, import('firebase/firestore').DocumentSnapshot>} */
   const map = new Map();
+  let done = 0;
   for (const part of chunks) {
     const q = query(
       collection(db, COL),
@@ -79,6 +82,8 @@ export async function fetchOrdenDocsByIds(docIds) {
     );
     const snap = await getDocs(q);
     snap.forEach((d) => map.set(d.id, d));
+    done += part.length;
+    onProgress?.(Math.min(done, unique.length), unique.length);
   }
   return map;
 }
@@ -103,7 +108,11 @@ export async function importExcelRows(rows, onProgress) {
     rowById.set(id, row);
   }
 
-  const existing = await fetchOrdenDocsByIds(docIds);
+  const existing = await fetchOrdenDocsByIds(docIds, (readDone, readTotal) => {
+    done = readDone;
+    onProgress?.({ phase: 'read', done, total: readTotal });
+  });
+  done = total;
   report('read');
 
   const toCreate = [];
@@ -174,6 +183,8 @@ export async function importExcelRows(rows, onProgress) {
   }
 
   const chunkOps = chunkArray(ops, BATCH_MAX);
+  done = 0;
+  const writeTotal = ops.length;
   for (const part of chunkOps) {
     const batch = writeBatch(db);
     for (const op of part) {
@@ -181,7 +192,7 @@ export async function importExcelRows(rows, onProgress) {
     }
     await batch.commit();
     done += part.length;
-    report('write');
+    onProgress?.({ phase: 'write', done, total: writeTotal });
   }
 
   await mergeFiltrosFromExcelRows(rows);
