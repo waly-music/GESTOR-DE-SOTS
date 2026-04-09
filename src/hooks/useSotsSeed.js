@@ -53,24 +53,29 @@ export function useSotsSeed(profile, enabled = true) {
     }
 
     try {
-      const q = buildOrdenesQuery(
-        { rol: profile.rol, contratista: profile.contratista ?? null },
-        {},
-        SEED_LIMIT,
-      );
-      const snap = await fetchQueryPage(q);
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setRows(list);
       try {
-        sessionStorage.setItem(
-          cacheKey,
-          JSON.stringify({ ts: Date.now(), rows: list }),
+        const q = buildOrdenesQuery(
+          { rol: profile.rol, contratista: profile.contratista ?? null },
+          {},
+          SEED_LIMIT,
         );
-      } catch {
-        // cache opcional
+        const snap = await fetchQueryPage(q);
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setRows(list);
+        try {
+          sessionStorage.setItem(
+            cacheKey,
+            JSON.stringify({ ts: Date.now(), rows: list }),
+          );
+        } catch {
+          // cache opcional
+        }
+      } catch (error) {
+        console.error('SOT QUERY ERROR:', error?.code, error?.message, error);
+        throw error;
       }
     } catch (e) {
-      console.error('[useSotsSeed] Firestore query failed', e);
+      console.error('SOT QUERY ERROR:', e?.code, e?.message, e);
       setError(e.message ?? String(e));
     } finally {
       setLoading(false);

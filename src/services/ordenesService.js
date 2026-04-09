@@ -243,6 +243,14 @@ export function buildOrdenesQuery(profile, filters, pageSize = 25, cursor = null
   const constraints = [];
   const rol = profileRol(profile);
   const contractor = String(profile?.contratista ?? '').trim();
+  const selectedContractor = String(filters.contratista ?? '').trim();
+
+  console.log('QUERY PARAMS:', {
+    region: filters.region ?? '',
+    departamento: filters.departamento ?? '',
+    distrito: filters.distrito ?? '',
+    contratista: selectedContractor || contractor || '',
+  });
 
   // Reducción de costos: asesor/supervisor consultan solo su contratista.
   if (rol === 'asesor' || rol === 'supervisor') {
@@ -267,8 +275,15 @@ export function buildOrdenesQuery(profile, filters, pageSize = 25, cursor = null
   if (filters.distrito) {
     constraints.push(where('distrito', '==', filters.distrito));
   }
-  if (filters.contratista) {
-    constraints.push(where('contratista', '==', filters.contratista));
+  if (selectedContractor) {
+    // Evita query inválida: no repetir where('contratista','==',...) en asesor/supervisor.
+    if (rol === 'asesor' || rol === 'supervisor') {
+      if (contractor && selectedContractor !== contractor) {
+        constraints.push(where('contratista', '==', '__NO_MATCH__'));
+      }
+    } else {
+      constraints.push(where('contratista', '==', selectedContractor));
+    }
   }
 
   const sotSearch = filters.searchSot?.trim();
