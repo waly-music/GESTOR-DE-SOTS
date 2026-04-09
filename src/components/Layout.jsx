@@ -53,8 +53,8 @@ export function Layout({ children }) {
               Dashboard
             </NavLink>
             {profile?.role === ROLES.ADMIN && (
-              <NavLink to="/usuarios" className={linkClass}>
-                Usuarios
+              <NavLink to="/admin" className={linkClass}>
+                Administración
               </NavLink>
             )}
           </nav>

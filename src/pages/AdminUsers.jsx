@@ -21,7 +21,10 @@ function createInitialForm() {
   };
 }
 
-export default function AdminUsers() {
+/**
+ * @param {{ embedded?: boolean }} props
+ */
+export default function AdminUsers({ embedded = false }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
@@ -125,27 +128,29 @@ export default function AdminUsers() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Usuarios</h1>
-        <p className="text-slate-600">
-          {isAuthDisabled() ? (
-            <>
-              Modo <strong>sin Authentication</strong>: use &quot;Perfil local&quot; en la
-              cabecera para probar roles. Aquí solo edita documentos en Firestore.
-            </>
-          ) : (
-            <>
-              Cree cuentas en <strong>Firebase Authentication</strong> y el perfil
-              en Firestore, o edite rol y contratista de usuarios existentes.
-            </>
-          )}
-        </p>
-      </div>
+      {!embedded && (
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">Usuarios</h1>
+          <p className="text-slate-600">
+            {isAuthDisabled() ? (
+              <>
+                Modo <strong>sin Authentication</strong>: use &quot;Perfil local&quot; en la
+                cabecera para probar roles. Aquí solo edita documentos en Firestore.
+              </>
+            ) : (
+              <>
+                Cree cuentas en <strong>Firebase Authentication</strong> y el perfil
+                en Firestore, o edite rol y contratista de usuarios existentes.
+              </>
+            )}
+          </p>
+        </div>
+      )}
 
       {!isAuthDisabled() && (
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="text-lg font-medium text-slate-900">
-          Nuevo usuario (Auth + Firestore)
+        <h2 className={`font-medium text-slate-900 ${embedded ? 'text-base' : 'text-lg'}`}>
+          Generar nuevo usuario (correo, contraseña y rol)
         </h2>
         <p className="mt-1 text-sm text-slate-600">
           Requiere desplegar la Cloud Function{' '}

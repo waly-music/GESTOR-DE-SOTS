@@ -5,7 +5,7 @@ import { Layout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-import AdminUsers from './pages/AdminUsers';
+import Administration from './pages/Administration';
 
 export default function App() {
   return (
@@ -24,14 +24,18 @@ export default function App() {
             }
           />
           <Route
-            path="/usuarios"
+            path="/admin"
             element={
               <ProtectedRoute roles={[ROLES.ADMIN]}>
                 <Layout>
-                  <AdminUsers />
+                  <Administration />
                 </Layout>
               </ProtectedRoute>
             }
+          />
+          <Route
+            path="/usuarios"
+            element={<Navigate to="/admin" replace />}
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

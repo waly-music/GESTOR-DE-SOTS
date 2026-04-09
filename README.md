@@ -86,9 +86,9 @@ Si la app muestra un error de índice faltante en la consola del navegador, use 
 }
 ```
 
-### Crear más usuarios desde la app (Auth + Firestore)
+### Administración (Excel + usuarios)
 
-La pantalla **Usuarios** incluye el formulario **Nuevo usuario**, que llama a la Cloud Function `createUserWithProfile`: crea la cuenta en **Firebase Authentication** y el documento `users/{uid}` en Firestore. Solo puede ejecutarla un usuario con `role: "admin"`.
+Los **administradores** tienen la ruta **`/admin` (Administración)** en el menú: allí pueden **importar el Excel base** de órdenes y usar el formulario para **generar usuarios** (correo, contraseña, rol). El alta de usuarios llama a la Cloud Function `createUserWithProfile`: crea la cuenta en **Firebase Authentication** y el documento `users/{uid}` en Firestore. La ruta antigua `/usuarios` redirige a `/admin`.
 
 **Requisito:** plan de facturación **Blaze** en Firebase para desplegar Cloud Functions (límite gratuito generoso; consulte precios actuales en Google Cloud).
 

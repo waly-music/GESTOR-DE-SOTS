@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ROLES } from '../constants/gestion';
 import { useDashboardMetrics } from '../hooks/useDashboardMetrics';
@@ -6,7 +7,6 @@ import { useOrdenesPage } from '../hooks/useOrdenesPage';
 import { fetchAllOrdenesForExport } from '../services/ordenesService';
 import { getFiltrosOptions } from '../services/filtrosService';
 import { exportRowsToExcel } from '../utils/excelParser';
-import { ExcelUpload } from '../components/ExcelUpload';
 import { GestionModal } from '../components/GestionModal';
 import { MetricCards } from '../components/MetricCards';
 import { OrdersTable } from '../components/OrdersTable';
@@ -46,7 +46,6 @@ export default function Dashboard() {
     distritos: [],
     contratistas: [],
   });
-  const [metaTick, setMetaTick] = useState(0);
   const [filters, setFilters] = useState({
     region: '',
     departamento: '',
@@ -74,7 +73,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadFiltros();
-  }, [loadFiltros, metaTick]);
+  }, [loadFiltros]);
 
   const filterFields = (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -167,12 +166,16 @@ export default function Dashboard() {
       />
 
       {profile?.role === ROLES.ADMIN && (
-        <ExcelUpload
-          onDone={() => {
-            metrics.refresh();
-            setMetaTick((t) => t + 1);
-          }}
-        />
+        <div className="rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-slate-800">
+          <strong>Administrador:</strong> importe la base Excel y cree usuarios en{' '}
+          <Link
+            to="/admin"
+            className="font-medium text-brand-700 underline hover:text-brand-800"
+          >
+            Administración
+          </Link>
+          .
+        </div>
       )}
 
       <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
