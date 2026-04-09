@@ -1,11 +1,71 @@
 rules_version = '2';
-// Modo sin Firebase Authentication (VITE_DISABLE_AUTH=true en el front).
-// Cualquiera con la clave del proyecto puede leer/escribir. SOLO para pruebas.
-// Para producción con login: copie firestore.rules.with-auth aquí y despliegue.
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
+
+    function userPath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    function userData() {
+      return get(userPath()).data;
+    }
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function hasUserDoc() {
+      return exists(userPath());
+    }
+
+    function isAdmin() {
+      return signedIn() && hasUserDoc() && userData().role == 'admin';
+    }
+
+    function sameContractor(c) {
+      return hasUserDoc() && userData().contratista == c;
+    }
+
+    function canReadOrden(data) {
+      return isAdmin() ||
+        (
+          hasUserDoc() &&
+          userData().role in ['supervisor', 'asesor'] &&
+          sameContractor(data.contratista)
+        );
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create: if signedIn() && request.auth.uid == uid;
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    match /config/{docId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /ordenes/{id} {
+      allow read: if signedIn() && canReadOrden(resource.data);
+      allow create: if isAdmin();
+      allow update: if isAdmin() ||
+        (
+          userData().role == 'supervisor' &&
+          sameContractor(resource.data.contratista)
+        ) ||
+        (
+          userData().role == 'asesor' &&
+          sameContractor(resource.data.contratista) &&
+          (
+            !('gestion' in resource.data) ||
+            resource.data.gestion == null ||
+            !('usuarioId' in resource.data.gestion) ||
+            resource.data.gestion.usuarioId == request.auth.uid
+          )
+        );
+      allow delete: if false;
     }
   }
 }

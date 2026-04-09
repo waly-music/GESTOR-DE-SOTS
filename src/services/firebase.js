@@ -4,7 +4,7 @@ import { getFirestore } from 'firebase/firestore';
 import { getFunctions } from 'firebase/functions';
 
 const firebaseConfig = {
-    apiKey: "AIzaSyAPBqGAvmHfwq6kWd30z7ZC7WQpBrSw7Yk",
+  apiKey: "AIzaSyAPBqGAvmHfwq6kWd30z7ZC7WQpBrSw7Yk",
   authDomain: "gestion-sots.firebaseapp.com",
   projectId: "gestion-sots",
   storageBucket: "gestion-sots.firebasestorage.app",

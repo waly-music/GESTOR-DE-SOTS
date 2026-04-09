@@ -1,6 +1,6 @@
 /**
- * Sin Firebase Auth: perfil solo en localStorage (ver `demoProfile.js`).
- * En producción con login, establecer VITE_DISABLE_AUTH=false o eliminar la variable.
+ * Solo desarrollo: sin Firebase Auth (perfil en `demoProfile.js`).
+ * Por defecto está desactivado; en producción use login y `firestore.rules`.
  */
 export function isAuthDisabled() {
   return import.meta.env.VITE_DISABLE_AUTH === 'true';

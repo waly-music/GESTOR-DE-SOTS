@@ -1,5 +1,6 @@
 import {
   onAuthStateChanged,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
@@ -18,6 +19,34 @@ export async function loginEmailPassword(email, password) {
 
 export async function logout() {
   return signOut(auth);
+}
+
+/**
+ * Envía correo de restablecimiento de contraseña (Firebase Auth).
+ * @param {string} email
+ */
+export async function sendPasswordReset(email) {
+  return sendPasswordResetEmail(auth, email.trim());
+}
+
+/**
+ * Mensaje legible en español para códigos comunes de Firebase Auth.
+ * @param {{ code?: string, message?: string }} err
+ */
+export function authErrorMessage(err) {
+  const code = err?.code ?? '';
+  const map = {
+    'auth/invalid-credential':
+      'Correo o contraseña incorrectos.',
+    'auth/invalid-email': 'El correo no es válido.',
+    'auth/user-disabled': 'Esta cuenta está deshabilitada.',
+    'auth/user-not-found': 'No existe una cuenta con ese correo.',
+    'auth/wrong-password': 'Contraseña incorrecta.',
+    'auth/too-many-requests':
+      'Demasiados intentos. Espere un momento e intente de nuevo.',
+    'auth/network-request-failed': 'Error de red. Compruebe su conexión.',
+  };
+  return map[code] ?? err?.message ?? 'Error al iniciar sesión.';
 }
 
 /**

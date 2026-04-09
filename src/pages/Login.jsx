@@ -2,15 +2,15 @@ import { useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { isAuthDisabled } from '../config/authMode';
 import { useAuth } from '../context/AuthContext';
-import { loginEmailPassword } from '../services/authService';
+import {
+  authErrorMessage,
+  loginEmailPassword,
+  sendPasswordReset,
+} from '../services/authService';
 import { Spinner } from '../components/Spinner';
 
 export default function Login() {
   const { user, profile, loading } = useAuth();
-
-  if (isAuthDisabled()) {
-    return <Navigate to="/" replace />;
-  }
   const navigate = useNavigate();
   const loc = useLocation();
   const from = loc.state?.from?.pathname || '/';
@@ -19,6 +19,12 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [err, setErr] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [resetMsg, setResetMsg] = useState(null);
+  const [resetBusy, setResetBusy] = useState(false);
+
+  if (isAuthDisabled()) {
+    return <Navigate to="/" replace />;
+  }
 
   if (loading) {
     return (
@@ -38,9 +44,11 @@ export default function Login() {
         <div className="max-w-md rounded-2xl border border-amber-200 bg-amber-50 p-6 text-amber-950">
           <p className="font-medium">Falta el documento de usuario en Firestore</p>
           <p className="mt-2 text-sm">
-            Un administrador debe crear la colección <code className="rounded bg-amber-100 px-1">users</code> con su UID y campos{' '}
+            Un administrador debe crear el documento{' '}
+            <code className="rounded bg-amber-100 px-1">users/{user.uid}</code> con
+            campos{' '}
             <code className="rounded bg-amber-100 px-1">role</code> y{' '}
-            <code className="rounded bg-amber-100 px-1">contratista</code>.
+            <code className="rounded bg-amber-100 px-1">contratista</code> (si aplica).
           </p>
         </div>
       </div>
@@ -50,18 +58,36 @@ export default function Login() {
   async function handleSubmit(e) {
     e.preventDefault();
     setErr(null);
+    setResetMsg(null);
     setBusy(true);
     try {
       await loginEmailPassword(email.trim(), password);
       navigate(from, { replace: true });
     } catch (er) {
-      setErr(
-        er.code === 'auth/invalid-credential'
-          ? 'Credenciales inválidas.'
-          : er.message ?? String(er),
-      );
+      setErr(authErrorMessage(er));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function handleForgotPassword() {
+    const em = email.trim();
+    if (!em) {
+      setErr('Escriba su correo arriba y pulse «Olvidé mi contraseña».');
+      return;
+    }
+    setErr(null);
+    setResetMsg(null);
+    setResetBusy(true);
+    try {
+      await sendPasswordReset(em);
+      setResetMsg(
+        'Si el correo existe, recibirá un enlace para restablecer la contraseña.',
+      );
+    } catch (er) {
+      setErr(authErrorMessage(er));
+    } finally {
+      setResetBusy(false);
     }
   }
 
@@ -72,7 +98,7 @@ export default function Login() {
           Gestión SOT
         </h1>
         <p className="mt-1 text-center text-sm text-slate-600">
-          Inicie sesión con su cuenta corporativa
+          Inicie sesión con correo y contraseña (Firebase Authentication)
         </p>
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
@@ -102,15 +128,30 @@ export default function Login() {
             />
           </div>
           {err && <p className="text-sm text-red-600">{err}</p>}
+          {resetMsg && (
+            <p className="text-sm text-emerald-700">{resetMsg}</p>
+          )}
           <button
             type="submit"
             disabled={busy}
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-600 py-2.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
           >
-            {busy ? <Spinner className="h-4 w-4 border-white border-r-transparent" /> : null}
+            {busy ? (
+              <Spinner className="h-4 w-4 border-white border-r-transparent" />
+            ) : null}
             Entrar
           </button>
         </form>
+        <div className="mt-4 text-center">
+          <button
+            type="button"
+            disabled={resetBusy}
+            onClick={handleForgotPassword}
+            className="text-sm text-brand-700 hover:underline disabled:opacity-50"
+          >
+            {resetBusy ? 'Enviando…' : 'Olvidé mi contraseña'}
+          </button>
+        </div>
       </div>
     </div>
   );

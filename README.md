@@ -1,6 +1,6 @@
 # Gestión SOT — Instalación Internet
 
-Aplicación web (React + Vite + TailwindCSS) con Firebase (Firestore, Hosting). El **login con Firebase Authentication** es opcional: con `VITE_DISABLE_AUTH=true` la app usa un **perfil local** (rol y contratista en el navegador) y no muestra pantalla de acceso.
+Aplicación web (React + Vite + TailwindCSS) con **Firebase Authentication** (correo/contraseña), Firestore y Hosting. Tras configurar `.env`, la pantalla de **login** es la entrada por defecto. El modo sin login (`VITE_DISABLE_AUTH=true`) es solo para pruebas locales.
 
 ## Requisitos
 
@@ -22,13 +22,17 @@ Aplicación web (React + Vite + TailwindCSS) con Firebase (Firestore, Hosting). 
 copy .env.example .env
 ```
 
-Edite `.env` y complete los valores `VITE_FIREBASE_*` del paso anterior.
+Edite `.env` y complete los valores `VITE_FIREBASE_*` del paso anterior. Despliegue las reglas seguras: `firebase deploy --only firestore:rules` (el archivo `firestore.rules` del repo exige usuario autenticado y coincide con `firestore.rules.with-auth`).
 
-### Modo sin Authentication (`VITE_DISABLE_AUTH=true`)
+### Usuarios y sesión
 
-- No hay login: al abrir la app entra directo al panel. Use **Perfil local** (cabecera) para elegir **rol** y **contratista**; se guarda en `localStorage`.
-- Las **reglas de Firestore** del repo están en modo abierto (`allow read, write` en todo) para que el SDK funcione **sin token**. **No use esto en producción** con datos reales.
-- Copia de seguridad de reglas con Auth: `firestore.rules.with-auth`. Cuando active login, ponga `VITE_DISABLE_AUTH=false`, sustituya el contenido de `firestore.rules` por el de `firestore.rules.with-auth`, despliegue reglas y cree usuarios en Authentication como indica la sección de usuarios.
+- En **Firebase Console** → **Authentication**, habilite **Correo/contraseña**.
+- Cada usuario debe tener un documento en Firestore `users/{UID}` (UID = Authentication) con `role` y `contratista` (véase la sección de usuarios más abajo). Los administradores pueden crear usuarios con la Cloud Function `createUserWithProfile` desde la app.
+
+### Modo demo sin login (opcional, `VITE_DISABLE_AUTH=true`)
+
+- No hay pantalla de acceso; use **Perfil local** en la cabecera. **No use en producción.**
+- Despliegue reglas abiertas copiando `firestore.rules.no-auth` sobre `firestore.rules`, o despliegue solo ese contenido en Firebase.
 
 Si cambia la región de las Cloud Functions, defina también `VITE_FIREBASE_FUNCTIONS_REGION` (debe coincidir con `functions/index.js`).
 
