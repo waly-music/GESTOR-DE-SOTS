@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ExcelUpload } from '../components/ExcelUpload';
@@ -15,7 +15,8 @@ import { OrdersTable } from '../components/OrdersTable';
 import { DashboardCharts } from '../components/DashboardCharts';
 import { useSotsSeed } from '../hooks/useSotsSeed';
 import { isAsesor, isSupervisor } from '../utils/roles';
-import { updateOrdenObservacion } from '../services/ordenesService';
+import { saveGestion, updateOrdenObservacion } from '../services/ordenesService';
+import { getFiltrosOptions, getFiltrosSeedRows } from '../services/filtrosService';
 
 const STORAGE_FILTERS_KEY = 'sot_dashboard_filters_v2';
 
@@ -89,6 +90,17 @@ export default function Dashboard() {
   const [exporting, setExporting] = useState(false);
   const [searchDebounced, setSearchDebounced] = useState(filters.searchSot);
   const [savingObsId, setSavingObsId] = useState(null);
+  const [rowsLocal, setRowsLocal] = useState([]);
+  const [actionMsg, setActionMsg] = useState(null);
+  const [filterSeedRows, setFilterSeedRows] = useState([]);
+  const [baseFilterOptions, setBaseFilterOptions] = useState({
+    regions: [],
+    departamentos: [],
+    distritos: [],
+    contratistas: [],
+  });
+  const debounceTimersRef = useRef(new Map());
+  const latestTaskRef = useRef(new Map());
 
   const profileForQuery = useMemo(
     () =>
@@ -109,6 +121,59 @@ export default function Dashboard() {
   const seed = useSotsSeed(profileForQuery, !missingRequiredFilters);
 
   useEffect(() => {
+    setRowsLocal(seed.rows);
+  }, [seed.rows]);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const options = await getFiltrosOptions();
+        if (!alive) return;
+        setBaseFilterOptions(options);
+      } catch {
+        if (!alive) return;
+        setBaseFilterOptions({
+          regions: [],
+          departamentos: [],
+          distritos: [],
+          contratistas: [],
+        });
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isAsesor(profile)) return;
+    const own = String(profile?.contratista ?? '').trim();
+    if (!own) return;
+    setFilters((f) => (f.contratista ? f : { ...f, contratista: own }));
+  }, [profile?.rol, profile?.contratista]);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const selected = String(filters.contratista ?? '').trim();
+      const own = isAsesor(profile) ? String(profile?.contratista ?? '').trim() : '';
+      const effectiveContractor = selected || own;
+      try {
+        const rows = await getFiltrosSeedRows(effectiveContractor || null);
+        if (!alive) return;
+        setFilterSeedRows(rows);
+      } catch {
+        if (!alive) return;
+        setFilterSeedRows([]);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [filters.contratista, profile?.rol, profile?.contratista]);
+
+  useEffect(() => {
     const t = setTimeout(() => {
       setSearchDebounced(filters.searchSot || '');
     }, 250);
@@ -120,15 +185,25 @@ export default function Dashboard() {
   }, [filters]);
 
   const options = useMemo(() => {
-    const regions = new Set(seed.rows.map((x) => x.region).filter(Boolean));
+    const optionsSource = filterSeedRows.length
+      ? filterSeedRows
+      : baseFilterOptions.contratistas.length
+        ? baseFilterOptions.contratistas.map((c) => ({ contratista: c }))
+        : [];
+
+    const regions = new Set(
+      (filterSeedRows.length ? filterSeedRows : [])
+        .map((x) => x.region)
+        .filter(Boolean),
+    );
     const departamentos = new Set(
-      seed.rows
+      (filterSeedRows.length ? filterSeedRows : [])
         .filter((x) => !filters.region || x.region === filters.region)
         .map((x) => x.departamento)
         .filter(Boolean),
     );
     const distritos = new Set(
-      seed.rows
+      (filterSeedRows.length ? filterSeedRows : [])
         .filter(
           (x) =>
             (!filters.region || x.region === filters.region) &&
@@ -138,16 +213,24 @@ export default function Dashboard() {
         .filter(Boolean),
     );
     const contratistas = new Set(
-      seed.rows
+      optionsSource
         .filter(
           (x) =>
-            (!filters.region || x.region === filters.region) &&
-            (!filters.departamento || x.departamento === filters.departamento) &&
-            (!filters.distrito || x.distrito === filters.distrito),
+            (!x.region || !filters.region || x.region === filters.region) &&
+            (!x.departamento ||
+              !filters.departamento ||
+              x.departamento === filters.departamento) &&
+            (!x.distrito || !filters.distrito || x.distrito === filters.distrito),
         )
         .map((x) => x.contratista)
         .filter(Boolean),
     );
+    if (!filterSeedRows.length) {
+      for (const v of baseFilterOptions.regions) regions.add(v);
+      for (const v of baseFilterOptions.departamentos) departamentos.add(v);
+      for (const v of baseFilterOptions.distritos) distritos.add(v);
+      for (const v of baseFilterOptions.contratistas) contratistas.add(v);
+    }
     return {
       regions: [...regions].sort((a, b) => a.localeCompare(b)),
       departamentos: [...departamentos].sort((a, b) => a.localeCompare(b)),
@@ -155,7 +238,8 @@ export default function Dashboard() {
       contratistas: [...contratistas].sort((a, b) => a.localeCompare(b)),
     };
   }, [
-    seed.rows,
+    filterSeedRows,
+    baseFilterOptions,
     filters.region,
     filters.departamento,
     filters.distrito,
@@ -166,7 +250,7 @@ export default function Dashboard() {
       missingRequiredFilters
         ? []
         :
-      seed.rows.filter((item) => {
+      rowsLocal.filter((item) => {
         const matchesSot =
           !searchDebounced ||
           String(item.sot ?? '')
@@ -181,7 +265,7 @@ export default function Dashboard() {
         );
       }),
     [
-      seed.rows,
+      rowsLocal,
       filters.region,
       filters.departamento,
       filters.distrito,
@@ -328,6 +412,39 @@ export default function Dashboard() {
     }
   }
 
+  function patchRowLocal(ordenId, patch) {
+    setRowsLocal((prev) =>
+      prev.map((row) => (row.id === ordenId ? { ...row, ...patch } : row)),
+    );
+  }
+
+  function scheduleDebouncedPersist(key, worker) {
+    const prevPending = latestTaskRef.current.get(key);
+    if (prevPending) {
+      prevPending.reject(new Error('cancelled'));
+    }
+    if (debounceTimersRef.current.has(key)) {
+      clearTimeout(debounceTimersRef.current.get(key));
+    }
+    return new Promise((resolve, reject) => {
+      latestTaskRef.current.set(key, { resolve, reject });
+      const timer = setTimeout(async () => {
+        try {
+          await worker();
+          const pending = latestTaskRef.current.get(key);
+          if (pending) pending.resolve();
+        } catch (err) {
+          const pending = latestTaskRef.current.get(key);
+          if (pending) pending.reject(err);
+        } finally {
+          debounceTimersRef.current.delete(key);
+          latestTaskRef.current.delete(key);
+        }
+      }, 300);
+      debounceTimersRef.current.set(key, timer);
+    });
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -431,10 +548,22 @@ export default function Dashboard() {
         showPagination={false}
         savingObservacionId={savingObsId}
         onSaveObservacion={async (orden, value) => {
+          const nextObs = String(value ?? '').trim().slice(0, 120);
+          const prevObs = String(orden.observacion ?? '');
+          patchRowLocal(orden.id, { observacion: nextObs });
           setSavingObsId(orden.id);
           try {
-            await updateOrdenObservacion(orden.id, value);
-            await seed.reload();
+            await scheduleDebouncedPersist(`obs:${orden.id}`, async () => {
+              await updateOrdenObservacion(orden.id, nextObs);
+            });
+          } catch (err) {
+            if (err?.message !== 'cancelled') {
+              patchRowLocal(orden.id, { observacion: prevObs });
+              setActionMsg({
+                type: 'err',
+                text: err?.message ?? 'No se pudo guardar la observación.',
+              });
+            }
           } finally {
             setSavingObsId(null);
           }
@@ -442,12 +571,68 @@ export default function Dashboard() {
         onGestionar={(o) => setModalOrden(o)}
       />
 
+      {actionMsg && (
+        <div
+          className={`rounded-lg border px-3 py-2 text-sm ${
+            actionMsg.type === 'ok'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+              : 'border-red-200 bg-red-50 text-red-700'
+          }`}
+        >
+          {actionMsg.text}
+        </div>
+      )}
+
       <GestionModal
         open={Boolean(modalOrden)}
         orden={modalOrden}
         onClose={() => setModalOrden(null)}
+        onSaveGestion={async ({ ordenId, gestion, actor }) => {
+          const prev = rowsLocal.find((r) => r.id === ordenId);
+          if (!prev) return;
+          const optimisticPatch = {
+            gestion: {
+              ...(prev.gestion ?? {}),
+              tipoGestion: gestion.tipoGestion,
+              fecha: gestion.fecha ?? null,
+              rangoHorario: gestion.rangoHorario ?? null,
+              usuarioId: actor.uid,
+              usuarioEmail: actor.email ?? '',
+              usuarioNombre: actor.displayName ?? '',
+            },
+            tieneGestion: true,
+            gestionTipo: gestion.tipoGestion,
+            gestionadoPor: {
+              nombre:
+                actor.displayName?.trim() ||
+                (actor.email ? String(actor.email).split('@')[0] : ''),
+              email: actor.email ?? '',
+              uid: actor.uid,
+            },
+          };
+          patchRowLocal(ordenId, optimisticPatch);
+          setActionMsg(null);
+          try {
+            await scheduleDebouncedPersist(`gestion:${ordenId}`, async () => {
+              await saveGestion(ordenId, gestion, actor);
+            });
+            setActionMsg({ type: 'ok', text: 'Gestión actualizada.' });
+          } catch (err) {
+            if (err?.message === 'cancelled') return;
+            patchRowLocal(ordenId, {
+              gestion: prev.gestion ?? null,
+              tieneGestion: prev.tieneGestion ?? false,
+              gestionTipo: prev.gestionTipo ?? null,
+              gestionadoPor: prev.gestionadoPor ?? null,
+            });
+            setActionMsg({
+              type: 'err',
+              text: err?.message ?? 'No se pudo guardar la gestión. Se revirtió el cambio.',
+            });
+          }
+        }}
         onSaved={() => {
-          seed.reload();
+          // Estado local optimista: evitamos recargar toda la colección.
         }}
       />
     </div>

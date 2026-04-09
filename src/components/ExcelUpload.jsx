@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { parseExcelOrdenes } from '../utils/excelParser';
+import { parseExcelOrdenesInWorker } from '../utils/excelParser';
 import { importExcelRows } from '../services/ordenesService';
 import { ExcelPreviewModal } from './ExcelPreviewModal';
 import { Spinner } from './Spinner';
@@ -24,7 +24,7 @@ export function ExcelUpload({ onDone }) {
     setParseErrors(null);
     try {
       const buf = await file.arrayBuffer();
-      const { rows, errors } = await parseExcelOrdenes(buf);
+      const { rows, errors } = await parseExcelOrdenesInWorker(buf);
       if (errors.length) {
         setParseErrors(errors.join(' '));
         return;
@@ -51,7 +51,7 @@ export function ExcelUpload({ onDone }) {
       setPreviewRows(null);
       setMsg({
         type: 'ok',
-        text: `Éxito: se cargaron ${result.totalCargados} registro(s) en Firestore (colección «sots»): ${result.created} nuevos, ${result.updated} actualizados, ${result.skippedWithGestion} omitidos (ya tenían gestión en el sistema).`,
+        text: `Éxito: se cargaron ${result.totalCargados} registro(s) en Firestore (colección «sots»): ${result.created} nuevos, ${result.updated} actualizados, ${result.skippedWithGestion} omitidos (ya tenían gestión) y ${result.skippedInvalid} inválidos.`,
       });
       onDone?.();
     } catch (err) {
@@ -98,7 +98,7 @@ export function ExcelUpload({ onDone }) {
       )}
       {progress && (
         <p className="mt-2 text-xs text-slate-500">
-          Procesando… {progress.phase} ({progress.done}/{progress.total})
+          Procesando {progress.done} de {progress.total} filas... ({progress.phase})
         </p>
       )}
       {msg && (

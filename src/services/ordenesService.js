@@ -96,7 +96,16 @@ export async function fetchOrdenDocsByIds(docIds, onProgress) {
  * @param {(info: { phase: string, done: number, total: number }) => void} [onProgress]
  */
 export async function importExcelRows(rows, onProgress) {
-  const total = rows.length;
+  const requiredRows = rows.filter((row) => {
+    const sot = String(row?.sot ?? '').trim();
+    const region = String(row?.region ?? '').trim();
+    const departamento = String(row?.departamento ?? '').trim();
+    const distrito = String(row?.distrito ?? '').trim();
+    const contratista = String(row?.contratista ?? '').trim();
+    return Boolean(sot && region && departamento && distrito && contratista);
+  });
+  const skippedInvalid = Math.max(0, rows.length - requiredRows.length);
+  const total = requiredRows.length;
   let done = 0;
   const report = (phase) => {
     onProgress?.({ phase, done, total });
@@ -104,7 +113,7 @@ export async function importExcelRows(rows, onProgress) {
 
   const docIds = [];
   const rowById = new Map();
-  for (const row of rows) {
+  for (const row of requiredRows) {
     const id = sotToDocId(row.sot);
     docIds.push(id);
     rowById.set(id, row);
@@ -140,14 +149,15 @@ export async function importExcelRows(rows, onProgress) {
     }
   }
 
-  const BATCH_MAX = 500;
+  const BATCH_MAX = 400;
 
-  const ops = [];
+  const createOps = [];
+  const updateOps = [];
 
   for (const { id, row } of toCreate) {
     const ref = doc(db, COL, id);
     const g = excelImportGestionFields(row.gestionRaw);
-    ops.push({
+    createOps.push({
       ref,
       data: {
         sot: normalizeSotDisplay(row.sot),
@@ -161,14 +171,13 @@ export async function importExcelRows(rows, onProgress) {
         updatedAt: serverTimestamp(),
         lastExcelImportAt: serverTimestamp(),
       },
-      options: { merge: false },
     });
   }
 
   for (const { id, row } of toUpdate) {
     const ref = doc(db, COL, id);
     const g = excelImportGestionFields(row.gestionRaw);
-    ops.push({
+    updateOps.push({
       ref,
       data: {
         sot: normalizeSotDisplay(row.sot),
@@ -180,30 +189,42 @@ export async function importExcelRows(rows, onProgress) {
         updatedAt: serverTimestamp(),
         lastExcelImportAt: serverTimestamp(),
       },
-      options: { merge: true },
     });
   }
 
-  const chunkOps = chunkArray(ops, BATCH_MAX);
+  const writeTotal = createOps.length + updateOps.length;
   done = 0;
-  const writeTotal = ops.length;
-  for (const part of chunkOps) {
+
+  const createChunks = chunkArray(createOps, BATCH_MAX);
+  for (const part of createChunks) {
     const batch = writeBatch(db);
     for (const op of part) {
-      batch.set(op.ref, op.data, op.options);
+      batch.set(op.ref, op.data, { merge: false });
     }
     await batch.commit();
     done += part.length;
     onProgress?.({ phase: 'write', done, total: writeTotal });
   }
 
-  await mergeFiltrosFromExcelRows(rows);
+  const updateChunks = chunkArray(updateOps, BATCH_MAX);
+  for (const part of updateChunks) {
+    const batch = writeBatch(db);
+    for (const op of part) {
+      batch.update(op.ref, op.data);
+    }
+    await batch.commit();
+    done += part.length;
+    onProgress?.({ phase: 'write', done, total: writeTotal });
+  }
+
+  await mergeFiltrosFromExcelRows(requiredRows);
 
   const written = toCreate.length + toUpdate.length;
   return {
     created: toCreate.length,
     updated: toUpdate.length,
     skippedWithGestion: skippedWithGestion.length,
+    skippedInvalid,
     totalCargados: written,
   };
 }

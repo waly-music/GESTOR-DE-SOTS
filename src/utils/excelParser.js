@@ -116,6 +116,32 @@ export async function parseExcelOrdenes(arrayBuffer) {
 }
 
 /**
+ * Parsea Excel/CSV en Web Worker para evitar bloquear el hilo principal.
+ * Si Worker falla, hace fallback al parser local.
+ * @param {ArrayBuffer} arrayBuffer
+ */
+export async function parseExcelOrdenesInWorker(arrayBuffer) {
+  if (typeof Worker === 'undefined') {
+    return parseExcelOrdenes(arrayBuffer);
+  }
+
+  try {
+    const worker = new Worker(new URL('../workers/excelParser.worker.js', import.meta.url), {
+      type: 'module',
+    });
+    const result = await new Promise((resolve, reject) => {
+      worker.onmessage = (event) => resolve(event.data);
+      worker.onerror = (err) => reject(err);
+      worker.postMessage({ arrayBuffer }, [arrayBuffer]);
+    });
+    worker.terminate();
+    return result;
+  } catch {
+    return parseExcelOrdenes(arrayBuffer);
+  }
+}
+
+/**
  * @param {Array<Record<string, unknown>>} data
  * @param {string} filename
  */

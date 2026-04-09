@@ -10,9 +10,14 @@ import { formatDateOnly, formatTs } from '../utils/gestionColors';
  *   onClose: () => void,
  *   orden: Record<string, any> | null,
  *   onSaved: () => void,
+ *   onSaveGestion?: (payload: {
+ *     ordenId: string,
+ *     gestion: { tipoGestion: string, fecha: Date | null, rangoHorario: string | null },
+ *     actor: { uid: string, email: string|null, displayName?: string }
+ *   }) => Promise<void> | void,
  * }} props
  */
-export function GestionModal({ open, onClose, orden, onSaved }) {
+export function GestionModal({ open, onClose, orden, onSaved, onSaveGestion }) {
   const { user, profile } = useAuth();
   const [tipo, setTipo] = useState('');
   const [fecha, setFecha] = useState('');
@@ -62,19 +67,24 @@ export function GestionModal({ open, onClose, orden, onSaved }) {
 
     setSaving(true);
     try {
-      await saveGestion(
-        orden.id,
-        {
+      const payload = {
+        ordenId: orden.id,
+        gestion: {
           tipoGestion: tipo,
           fecha: fechaEnv,
           rangoHorario: needsRango ? rango : null,
         },
-        {
+        actor: {
           uid: user.uid,
           email: user.email,
           displayName: profile?.displayName ?? user.displayName ?? '',
         },
-      );
+      };
+      if (onSaveGestion) {
+        await onSaveGestion(payload);
+      } else {
+        await saveGestion(payload.ordenId, payload.gestion, payload.actor);
+      }
       onSaved?.();
       onClose();
     } catch (er) {

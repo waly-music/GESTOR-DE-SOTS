@@ -1,4 +1,14 @@
-import { doc, getDoc, runTransaction, serverTimestamp } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  limit,
+  query,
+  runTransaction,
+  serverTimestamp,
+  where,
+} from 'firebase/firestore';
 import { db } from './firebase';
 
 const REF = doc(db, 'config', 'filtros');
@@ -56,4 +66,26 @@ export async function getFiltrosOptions() {
     distritos: d.distritos ?? [],
     contratistas: d.contratistas ?? [],
   };
+}
+
+/**
+ * Carga una muestra ligera para construir combos dependientes por contratista.
+ * @param {string | null | undefined} contratista
+ */
+export async function getFiltrosSeedRows(contratista) {
+  const c = String(contratista ?? '').trim();
+  const base = collection(db, 'sots');
+  const q = c
+    ? query(base, where('contratista', '==', c), limit(1000))
+    : query(base, limit(1000));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => {
+    const x = d.data() ?? {};
+    return {
+      region: String(x.region ?? '').trim(),
+      departamento: String(x.departamento ?? '').trim(),
+      distrito: String(x.distrito ?? '').trim(),
+      contratista: String(x.contratista ?? '').trim(),
+    };
+  });
 }
