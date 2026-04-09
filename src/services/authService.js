@@ -5,11 +5,16 @@ import {
   signOut,
 } from 'firebase/auth';
 import {
+  collection,
   doc,
   getDoc,
   getDocFromServer,
+  getDocs,
+  limit,
+  query,
   serverTimestamp,
   setDoc,
+  where,
 } from 'firebase/firestore';
 import { pickRoleFromUserDoc } from '../utils/roles';
 import app, { auth, db } from './firebase';
@@ -89,6 +94,37 @@ export async function getUserProfile(uid) {
   }
 
   if (!snap.exists()) {
+    // Diagnóstico: si el ID del doc no coincide con el UID, buscamos por email.
+    // Esto ayuda a detectar perfiles creados con ID incorrecto.
+    try {
+      const email = auth.currentUser?.email ?? null;
+      if (email) {
+        const q = query(
+          collection(db, USERS),
+          where('email', '==', email),
+          limit(3),
+        );
+        const byEmail = await getDocs(q);
+        const matches = byEmail.docs.map((d) => ({
+          id: d.id,
+          rol: d.data()?.rol ?? d.data()?.role ?? null,
+          email: d.data()?.email ?? null,
+        }));
+        if (matches.length) {
+          console.error(
+            '[getUserProfile] Perfil encontrado por email, pero NO por UID. ID incorrecto en users/{uid}.',
+            {
+              uidAuth: uid,
+              email,
+              matches,
+            },
+          );
+        }
+      }
+    } catch (diagErr) {
+      console.warn('[getUserProfile] Falló diagnóstico por email', diagErr);
+    }
+
     console.warn('[getUserProfile] No hay documento en Firestore', {
       projectId,
       path,
