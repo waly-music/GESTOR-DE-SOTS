@@ -5,6 +5,7 @@ import {
   signOut,
 } from 'firebase/auth';
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { pickRoleFromUserDoc } from '../utils/roles';
 import { auth, db } from './firebase';
 
 const USERS = 'users';
@@ -57,7 +58,9 @@ export async function getUserProfile(uid) {
   const ref = doc(db, USERS, uid);
   const snap = await getDoc(ref);
   if (!snap.exists()) return null;
-  return { id: snap.id, ...snap.data() };
+  const data = snap.data();
+  const role = pickRoleFromUserDoc(data);
+  return { id: snap.id, ...data, role };
 }
 
 /**

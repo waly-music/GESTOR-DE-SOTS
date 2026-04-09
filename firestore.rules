@@ -18,23 +18,39 @@ service cloud.firestore {
       return exists(userPath());
     }
 
-    /** Acepta admin / Admin / ADMIN (datos históricos en Firestore). */
+    function roleIsAdmin(r) {
+      return r == 'admin' || r == 'Admin' || r == 'ADMIN' ||
+        r == 'administrator' || r == 'Administrator' ||
+        r == 'administrador' || r == 'Administrador' ||
+        r == 'superadmin' || r == 'SuperAdmin';
+    }
+
+    function roleIsSupervisor(r) {
+      return r == 'supervisor' || r == 'Supervisor' || r == 'SUPERVISOR' ||
+        r == 'supervisora' || r == 'Supervisora';
+    }
+
+    function roleIsAsesor(r) {
+      return r == 'asesor' || r == 'Asesor' || r == 'ASESOR' ||
+        r == 'asesora' || r == 'Asesora' || r == 'advisor' || r == 'Advisor';
+    }
+
+    /** role, Role o rol (Firestore) — alineado con pickRoleFromUserDoc en el front. */
     function isAdmin() {
+      let d = userData();
       return signedIn() && hasUserDoc() && (
-        userData().role == 'admin' ||
-        userData().role == 'Admin' ||
-        userData().role == 'ADMIN'
+        roleIsAdmin(d.role) || roleIsAdmin(d.Role) || roleIsAdmin(d.rol)
       );
     }
 
     function isSupervisor() {
-      let r = userData().role;
-      return r == 'supervisor' || r == 'Supervisor' || r == 'SUPERVISOR';
+      let d = userData();
+      return roleIsSupervisor(d.role) || roleIsSupervisor(d.Role) || roleIsSupervisor(d.rol);
     }
 
     function isAsesor() {
-      let r = userData().role;
-      return r == 'asesor' || r == 'Asesor' || r == 'ASESOR';
+      let d = userData();
+      return roleIsAsesor(d.role) || roleIsAsesor(d.Role) || roleIsAsesor(d.rol);
     }
 
     /** Usuario con perfil y rol operativo (lectura de todas las SOT). */

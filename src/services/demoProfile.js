@@ -1,4 +1,5 @@
 import { ROLES } from '../constants/gestion';
+import { canonicalRole } from '../utils/roles';
 
 const STORAGE_KEY = 'sot_demo_profile_v1';
 
@@ -31,6 +32,7 @@ export function getDemoProfile() {
     ...base,
     ...raw,
     uid: DEMO_LOCAL_UID,
+    role: canonicalRole(raw.role ?? base.role),
     contratista:
       raw.contratista != null && String(raw.contratista).trim() !== ''
         ? String(raw.contratista).trim()

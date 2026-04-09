@@ -58,15 +58,18 @@ export function Layout({ children }) {
               </NavLink>
             )}
           </nav>
-          <div className="flex items-center gap-3 text-sm text-slate-600">
-            <span className="hidden sm:inline">
+          <div className="flex flex-col items-end gap-1 text-sm text-slate-600 sm:flex-row sm:items-center sm:gap-3">
+            <span className="max-w-[200px] truncate sm:max-w-none" title={user?.email}>
               {user?.email}
-              {profile?.role && (
-                <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs uppercase text-slate-700">
-                  {profile.role}
-                </span>
-              )}
             </span>
+            {profile?.role && (
+              <span
+                className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium uppercase text-slate-700"
+                title="Rol aplicado en la app (desde Firestore)"
+              >
+                {profile.role}
+              </span>
+            )}
             {authDisabled ? (
               <button
                 type="button"
