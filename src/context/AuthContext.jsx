@@ -12,9 +12,17 @@ import { subscribeAuth, getUserProfile } from '../services/authService';
 
 const AuthContext = createContext(null);
 
+/**
+ * @typedef {'missing' | 'permission' | 'network' | 'unknown' | null} ProfileLoadError
+ */
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
+  /** Si no hay perfil: falta doc, permisos Firestore, red, u otro (no solo "no existe"). */
+  const [profileError, setProfileError] = useState(
+    /** @type {ProfileLoadError} */ (null),
+  );
   const [loading, setLoading] = useState(true);
 
   const applyDemoState = useCallback(() => {
@@ -31,6 +39,7 @@ export function AuthProvider({ children }) {
       rol: p.rol,
       contratista: p.contratista || null,
     });
+    setProfileError(null);
   }, []);
 
   const refreshProfile = useCallback(
@@ -39,8 +48,32 @@ export function AuthProvider({ children }) {
         applyDemoState();
         return;
       }
-      const pr = await getUserProfile(uid);
-      setProfile(pr);
+      setProfileError(null);
+      try {
+        const pr = await getUserProfile(uid);
+        if (pr === null) {
+          setProfile(null);
+          setProfileError('missing');
+          return;
+        }
+        setProfile(pr);
+        setProfileError(null);
+      } catch (e) {
+        console.error('[AuthContext] Error al leer users/{uid} en Firestore', uid, e);
+        setProfile(null);
+        const code = e?.code ?? '';
+        if (code === 'permission-denied') {
+          setProfileError('permission');
+        } else if (
+          code === 'unavailable' ||
+          code === 'deadline-exceeded' ||
+          code === 'network-request-failed'
+        ) {
+          setProfileError('network');
+        } else {
+          setProfileError('unknown');
+        }
+      }
     },
     [applyDemoState],
   );
@@ -64,13 +97,10 @@ export function AuthProvider({ children }) {
     return subscribeAuth(async (u) => {
       setUser(u);
       if (u) {
-        try {
-          await refreshProfile(u.uid);
-        } catch {
-          setProfile(null);
-        }
+        await refreshProfile(u.uid);
       } else {
         setProfile(null);
+        setProfileError(null);
       }
       setLoading(false);
     });
@@ -80,12 +110,13 @@ export function AuthProvider({ children }) {
     () => ({
       user,
       profile,
+      profileError,
       loading,
       refreshProfile,
       authDisabled: isAuthDisabled(),
       updateDemoProfile,
     }),
-    [user, profile, loading, refreshProfile, updateDemoProfile],
+    [user, profile, profileError, loading, refreshProfile, updateDemoProfile],
   );
 
   return (

@@ -4,9 +4,15 @@ import {
   signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
-import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import {
+  doc,
+  getDoc,
+  getDocFromServer,
+  serverTimestamp,
+  setDoc,
+} from 'firebase/firestore';
 import { pickRoleFromUserDoc } from '../utils/roles';
-import { auth, db } from './firebase';
+import app, { auth, db } from './firebase';
 
 const USERS = 'users';
 
@@ -51,16 +57,69 @@ export function authErrorMessage(err) {
 }
 
 /**
- * Perfil en Firestore. El documento usa el UID de Auth como ID.
- * @param {string} uid
+ * Perfil en Firestore. Colección `users`, ID = UID de Authentication.
+ * Lee `rol` (y compat. con `role` vía pickRoleFromUserDoc).
+ * Prioriza lectura en servidor para no quedar con caché desactualizada.
+ * @param {string} uid UID del usuario autenticado (debe coincidir con el ID del documento)
  */
 export async function getUserProfile(uid) {
   const ref = doc(db, USERS, uid);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) return null;
+  const path = `${USERS}/${uid}`;
+  const projectId = app.options?.projectId ?? '(sin projectId)';
+
+  let snap;
+  try {
+    snap = await getDocFromServer(ref);
+  } catch (e1) {
+    console.warn(
+      '[getUserProfile] getDocFromServer falló, reintentando con caché local:',
+      e1?.code ?? e1,
+    );
+    try {
+      snap = await getDoc(ref);
+    } catch (e2) {
+      console.error('[getUserProfile] Lectura Firestore falló (servidor y caché)', {
+        path,
+        uid,
+        e1: e1?.code ?? e1,
+        e2: e2?.code ?? e2,
+      });
+      throw e2;
+    }
+  }
+
+  if (!snap.exists()) {
+    console.warn('[getUserProfile] No hay documento en Firestore', {
+      projectId,
+      path,
+      uid,
+      source: 'exists() === false',
+    });
+    return null;
+  }
+
   const data = snap.data();
   const rol = pickRoleFromUserDoc(data);
-  return { id: snap.id, ...data, rol };
+  const displayName =
+    (typeof data.displayName === 'string' && data.displayName.trim()) ||
+    (typeof data.nombre === 'string' && data.nombre.trim()) ||
+    '';
+
+  const profile = {
+    id: snap.id,
+    ...data,
+    rol,
+    displayName,
+  };
+
+  console.log('[getUserProfile] Documento users encontrado', {
+    projectId,
+    path,
+    uid: snap.id,
+    datos: profile,
+  });
+
+  return profile;
 }
 
 /**

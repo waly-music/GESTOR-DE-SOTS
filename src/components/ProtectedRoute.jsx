@@ -5,7 +5,7 @@ import { hasRole } from '../utils/roles';
 import { Spinner } from './Spinner';
 
 export function ProtectedRoute({ children, roles }) {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, profileError, loading } = useAuth();
   const loc = useLocation();
 
   if (loading) {
@@ -26,12 +26,20 @@ export function ProtectedRoute({ children, roles }) {
         <p className="max-w-md text-slate-700">
           {isAuthDisabled() ? (
             <>No se pudo cargar el perfil local. Recargue la página.</>
+          ) : profileError === 'permission' ? (
+            <>
+              No se pudo leer <code className="rounded bg-slate-200 px-1">users/{user?.uid}</code>{' '}
+              en Firestore (permiso denegado). Revise reglas y que el proyecto coincida con la consola.
+            </>
+          ) : profileError === 'network' ? (
+            <>Error de red al cargar el perfil. Intente de nuevo.</>
+          ) : profileError === 'unknown' ? (
+            <>Error al cargar el perfil. Revise la consola (F12).</>
           ) : (
             <>
-              No existe un perfil en Firestore para su usuario. Cree el documento{' '}
-              <code className="rounded bg-slate-200 px-1">users/{user?.uid}</code>{' '}
-              con campo <code className="rounded bg-slate-200 px-1">rol</code>{' '}
-              (admin, supervisor o asesor).
+              No existe un perfil para este usuario en Firestore. Cree el documento{' '}
+              <code className="rounded bg-slate-200 px-1">users/{user?.uid}</code> con campo{' '}
+              <code className="rounded bg-slate-200 px-1">rol</code> (admin, supervisor o asesor).
             </>
           )}
         </p>

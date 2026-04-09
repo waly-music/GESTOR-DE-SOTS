@@ -10,7 +10,7 @@ import {
 import { Spinner } from '../components/Spinner';
 
 export default function Login() {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, profileError, loading } = useAuth();
   const navigate = useNavigate();
   const loc = useLocation();
   const from = loc.state?.from?.pathname || '/';
@@ -42,13 +42,42 @@ export default function Login() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-slate-100 px-4 text-center">
         <div className="max-w-md rounded-2xl border border-amber-200 bg-amber-50 p-6 text-amber-950">
-          <p className="font-medium">Falta el documento de usuario en Firestore</p>
-          <p className="mt-2 text-sm">
-            Un administrador debe crear el documento{' '}
-            <code className="rounded bg-amber-100 px-1">users/{user.uid}</code> con
-            el campo <code className="rounded bg-amber-100 px-1">rol</code> (admin,
-            supervisor o asesor).
-          </p>
+          {profileError === 'permission' ? (
+            <>
+              <p className="font-medium">No se pudo leer el perfil en Firestore</p>
+              <p className="mt-2 text-sm">
+                Permiso denegado (<code className="rounded bg-amber-100 px-1">permission-denied</code>).
+                Revise las reglas: el usuario debe poder leer{' '}
+                <code className="rounded bg-amber-100 px-1">users/{user.uid}</code> y el
+                proyecto de la app debe ser el mismo que en la consola Firebase.
+              </p>
+            </>
+          ) : profileError === 'network' ? (
+            <>
+              <p className="font-medium">Error de red al cargar el perfil</p>
+              <p className="mt-2 text-sm">
+                No se pudo contactar con Firestore. Compruebe la conexión e intente de nuevo.
+              </p>
+            </>
+          ) : profileError === 'unknown' ? (
+            <>
+              <p className="font-medium">Error al cargar el perfil</p>
+              <p className="mt-2 text-sm">
+                Vea la consola del navegador (F12) para el detalle. UID:{' '}
+                <code className="rounded bg-amber-100 px-1">{user.uid}</code>
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="font-medium">No existe un perfil para este usuario en Firestore</p>
+              <p className="mt-2 text-sm">
+                Cree el documento{' '}
+                <code className="rounded bg-amber-100 px-1">users/{user.uid}</code> con el
+                campo <code className="rounded bg-amber-100 px-1">rol</code> (admin, supervisor
+                o asesor). El ID del documento debe ser exactamente el UID de Authentication.
+              </p>
+            </>
+          )}
         </div>
       </div>
     );
