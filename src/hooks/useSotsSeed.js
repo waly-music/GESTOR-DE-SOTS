@@ -9,18 +9,36 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
  * Reduce lecturas al evitar consultas por cada cambio de filtro.
  * @param {{ rol: string, contratista: string|null } | null} profile
  * @param {boolean} [enabled]
+ * @param {{ region?: string, departamento?: string, distrito?: string, contratista?: string }} [queryFilters]
+ * @param {number} [seedLimit]
  */
-export function useSotsSeed(profile, enabled = true) {
+export function useSotsSeed(profile, enabled = true, queryFilters = {}, seedLimit = SEED_LIMIT) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const filtersKey = useMemo(
+    () =>
+      JSON.stringify({
+        region: queryFilters.region ?? '',
+        departamento: queryFilters.departamento ?? '',
+        distrito: queryFilters.distrito ?? '',
+        contratista: queryFilters.contratista ?? '',
+      }),
+    [
+      queryFilters.region,
+      queryFilters.departamento,
+      queryFilters.distrito,
+      queryFilters.contratista,
+    ],
+  );
+
   const cacheKey = useMemo(
     () =>
       profile?.rol
-        ? `sots_seed_${profile.rol}_${profile.contratista ?? ''}`
+        ? `sots_seed_${profile.rol}_${profile.contratista ?? ''}_${filtersKey}_${seedLimit}`
         : 'sots_seed_guest',
-    [profile?.rol, profile?.contratista],
+    [profile?.rol, profile?.contratista, filtersKey, seedLimit],
   );
 
   const load = useCallback(async () => {
@@ -56,10 +74,12 @@ export function useSotsSeed(profile, enabled = true) {
       try {
         const q = buildOrdenesQuery(
           { rol: profile.rol, contratista: profile.contratista ?? null },
-          {},
-          SEED_LIMIT,
+          queryFilters,
+          seedLimit,
         );
         const snap = await fetchQueryPage(q);
+        console.log('RESULTS COUNT:', snap.docs.length);
+        console.log('FIRST DOC:', snap.docs[0]?.data?.());
         const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         setRows(list);
         try {
@@ -72,6 +92,31 @@ export function useSotsSeed(profile, enabled = true) {
         }
       } catch (error) {
         console.error('SOT QUERY ERROR:', error?.code, error?.message, error);
+        // Fallback para asesores: evita caída total por índices pendientes.
+        if (profile?.rol === 'asesor') {
+          try {
+            const fallbackQ = buildOrdenesQuery(
+              { rol: profile.rol, contratista: profile.contratista ?? null },
+              queryFilters,
+              seedLimit,
+              null,
+              { skipAsesorGestionFilter: true },
+            );
+            const fallbackSnap = await fetchQueryPage(fallbackQ);
+            console.log('RESULTS COUNT (fallback):', fallbackSnap.docs.length);
+            console.log('FIRST DOC (fallback):', fallbackSnap.docs[0]?.data?.());
+            const fallbackList = fallbackSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+            setRows(fallbackList);
+            return;
+          } catch (fallbackError) {
+            console.error(
+              'SOT QUERY ERROR (fallback):',
+              fallbackError?.code,
+              fallbackError?.message,
+              fallbackError,
+            );
+          }
+        }
         throw error;
       }
     } catch (e) {
@@ -80,7 +125,14 @@ export function useSotsSeed(profile, enabled = true) {
     } finally {
       setLoading(false);
     }
-  }, [cacheKey, profile?.rol, profile?.contratista, enabled]);
+  }, [
+    cacheKey,
+    profile?.rol,
+    profile?.contratista,
+    enabled,
+    queryFilters,
+    seedLimit,
+  ]);
 
   useEffect(() => {
     load();

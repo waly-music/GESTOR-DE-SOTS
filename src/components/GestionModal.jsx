@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { TIPOS_GESTION, RANGOS_HORARIO } from '../constants/gestion';
-import { saveGestion } from '../services/ordenesService';
+import { saveGestion, updateOrdenObservacion } from '../services/ordenesService';
 import { formatDateOnly, formatTs } from '../utils/gestionColors';
 
 /**
@@ -13,7 +13,8 @@ import { formatDateOnly, formatTs } from '../utils/gestionColors';
  *   onSaveGestion?: (payload: {
  *     ordenId: string,
  *     gestion: { tipoGestion: string, fecha: Date | null, rangoHorario: string | null },
- *     actor: { uid: string, email: string|null, displayName?: string }
+ *     actor: { uid: string, email: string|null, displayName?: string },
+ *     observacion: string,
  *   }) => Promise<void> | void,
  * }} props
  */
@@ -22,6 +23,7 @@ export function GestionModal({ open, onClose, orden, onSaved, onSaveGestion }) {
   const [tipo, setTipo] = useState('');
   const [fecha, setFecha] = useState('');
   const [rango, setRango] = useState('');
+  const [observacion, setObservacion] = useState('');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState(null);
 
@@ -36,6 +38,7 @@ export function GestionModal({ open, onClose, orden, onSaved, onSaveGestion }) {
       setFecha('');
     }
     setRango(g?.rangoHorario ?? '');
+    setObservacion(String(orden.observacion ?? '').slice(0, 120));
     setErr(null);
   }, [orden, open]);
 
@@ -79,12 +82,17 @@ export function GestionModal({ open, onClose, orden, onSaved, onSaveGestion }) {
           email: user.email,
           displayName: profile?.displayName ?? user.displayName ?? '',
         },
+        observacion: String(observacion ?? '').trim().slice(0, 120),
       };
       if (onSaveGestion) {
         await onSaveGestion(payload);
       } else {
         await saveGestion(payload.ordenId, payload.gestion, payload.actor);
+        if (payload.observacion) {
+          await updateOrdenObservacion(payload.ordenId, payload.observacion);
+        }
       }
+      setObservacion('');
       onSaved?.();
       onClose();
     } catch (er) {
@@ -172,6 +180,23 @@ export function GestionModal({ open, onClose, orden, onSaved, onSaveGestion }) {
               </select>
             </div>
           )}
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700">
+              Observación (opcional)
+            </label>
+            <textarea
+              rows={3}
+              value={observacion}
+              onChange={(e) => setObservacion(e.target.value.slice(0, 120))}
+              maxLength={120}
+              placeholder="Agregar observación..."
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            />
+            <p className="mt-1 text-right text-xs text-slate-500">
+              {observacion.length}/120
+            </p>
+          </div>
 
           {err && <p className="text-sm text-red-600">{err}</p>}
 

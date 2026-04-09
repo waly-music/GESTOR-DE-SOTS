@@ -60,6 +60,14 @@ function buildExportRows(list) {
   }));
 }
 
+function normalizeFilterValue(v) {
+  return String(v ?? '')
+    .trim()
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
 export default function Dashboard() {
   const { profile } = useAuth();
   const [filters, setFilters] = useState(() => {
@@ -118,7 +126,47 @@ export default function Dashboard() {
       !filters.distrito ||
       !filters.contratista);
 
-  const seed = useSotsSeed(profileForQuery, !missingRequiredFilters);
+  const strictQueryFilters = useMemo(
+    () =>
+      roleNeedsStrictFilters && !missingRequiredFilters
+        ? {
+            // Consulta base robusta por contratista; los demás filtros se validan en cliente.
+            contratista: filters.contratista || undefined,
+          }
+        : {},
+    [
+      roleNeedsStrictFilters,
+      missingRequiredFilters,
+      filters.region,
+      filters.departamento,
+      filters.distrito,
+      filters.contratista,
+    ],
+  );
+
+  useEffect(() => {
+    if (!roleNeedsStrictFilters || missingRequiredFilters) return;
+    console.log('ASESOR QUERY:', {
+      region: filters.region,
+      departamento: filters.departamento,
+      distrito: filters.distrito,
+      contratista: filters.contratista,
+    });
+  }, [
+    roleNeedsStrictFilters,
+    missingRequiredFilters,
+    filters.region,
+    filters.departamento,
+    filters.distrito,
+    filters.contratista,
+  ]);
+
+  const seed = useSotsSeed(
+    profileForQuery,
+    !missingRequiredFilters,
+    strictQueryFilters,
+    roleNeedsStrictFilters ? 500 : 200,
+  );
 
   useEffect(() => {
     setRowsLocal(seed.rows);
@@ -251,16 +299,25 @@ export default function Dashboard() {
         ? []
         :
       rowsLocal.filter((item) => {
+        const itemRegion = normalizeFilterValue(item.region);
+        const itemDepartamento = normalizeFilterValue(item.departamento);
+        const itemDistrito = normalizeFilterValue(item.distrito);
+        const itemContratista = normalizeFilterValue(item.contratista);
+        const filterRegion = normalizeFilterValue(filters.region);
+        const filterDepartamento = normalizeFilterValue(filters.departamento);
+        const filterDistrito = normalizeFilterValue(filters.distrito);
+        const filterContratista = normalizeFilterValue(filters.contratista);
         const matchesSot =
           !searchDebounced ||
           String(item.sot ?? '')
             .toLowerCase()
             .includes(searchDebounced.toLowerCase());
         return (
-          (!filters.region || item.region === filters.region) &&
-          (!filters.departamento || item.departamento === filters.departamento) &&
-          (!filters.distrito || item.distrito === filters.distrito) &&
-          (!filters.contratista || item.contratista === filters.contratista) &&
+          (!(isAsesor(profile) && Boolean(item.tieneGestion || item.gestionTipo))) &&
+          (!filterRegion || itemRegion === filterRegion) &&
+          (!filterDepartamento || itemDepartamento === filterDepartamento) &&
+          (!filterDistrito || itemDistrito === filterDistrito) &&
+          (!filterContratista || itemContratista === filterContratista) &&
           matchesSot
         );
       }),
@@ -587,9 +644,10 @@ export default function Dashboard() {
         open={Boolean(modalOrden)}
         orden={modalOrden}
         onClose={() => setModalOrden(null)}
-        onSaveGestion={async ({ ordenId, gestion, actor }) => {
+        onSaveGestion={async ({ ordenId, gestion, actor, observacion }) => {
           const prev = rowsLocal.find((r) => r.id === ordenId);
           if (!prev) return;
+          const nextObs = String(observacion ?? '').trim().slice(0, 120);
           const optimisticPatch = {
             gestion: {
               ...(prev.gestion ?? {}),
@@ -610,6 +668,7 @@ export default function Dashboard() {
               email: actor.email ?? '',
               uid: actor.uid,
             },
+            observacion: nextObs || prev.observacion || '',
           };
           patchRowLocal(ordenId, optimisticPatch);
           setActionMsg(null);
@@ -617,6 +676,11 @@ export default function Dashboard() {
             await scheduleDebouncedPersist(`gestion:${ordenId}`, async () => {
               await saveGestion(ordenId, gestion, actor);
             });
+            if (nextObs) {
+              await scheduleDebouncedPersist(`obs:${ordenId}`, async () => {
+                await updateOrdenObservacion(ordenId, nextObs);
+              });
+            }
             patchRowLocal(ordenId, {
               gestion: {
                 ...(prev.gestion ?? {}),
@@ -627,6 +691,7 @@ export default function Dashboard() {
                 usuarioEmail: actor.email ?? '',
                 usuarioNombre: actor.displayName ?? '',
               },
+              observacion: nextObs || prev.observacion || '',
             });
             setActionMsg({ type: 'ok', text: 'Gestión actualizada.' });
           } catch (err) {

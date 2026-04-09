@@ -238,12 +238,20 @@ export async function importExcelRows(rows, onProgress) {
  *   contratista?: string,
  *   searchSot?: string,
  * }} filters
+ * @param {{ skipAsesorGestionFilter?: boolean }} [options]
  */
-export function buildOrdenesQuery(profile, filters, pageSize = 25, cursor = null) {
+export function buildOrdenesQuery(
+  profile,
+  filters,
+  pageSize = 25,
+  cursor = null,
+  options = {},
+) {
   const constraints = [];
   const rol = profileRol(profile);
   const contractor = String(profile?.contratista ?? '').trim();
   const selectedContractor = String(filters.contratista ?? '').trim();
+  const effectiveContractor = selectedContractor || contractor;
 
   console.log('QUERY PARAMS:', {
     region: filters.region ?? '',
@@ -254,15 +262,15 @@ export function buildOrdenesQuery(profile, filters, pageSize = 25, cursor = null
 
   // Reducción de costos: asesor/supervisor consultan solo su contratista.
   if (rol === 'asesor' || rol === 'supervisor') {
-    if (contractor) {
-      constraints.push(where('contratista', '==', contractor));
+    if (effectiveContractor) {
+      constraints.push(where('contratista', '==', effectiveContractor));
     } else {
       // Evita lecturas amplias si el perfil no tiene contratista asignado.
       constraints.push(where('contratista', '==', '__UNASSIGNED__'));
     }
   }
   // Asesor: solo tickets pendientes/sin gestión.
-  if (rol === 'asesor') {
+  if (rol === 'asesor' && !options.skipAsesorGestionFilter) {
     constraints.push(where('tieneGestion', '==', false));
   }
 
@@ -275,15 +283,8 @@ export function buildOrdenesQuery(profile, filters, pageSize = 25, cursor = null
   if (filters.distrito) {
     constraints.push(where('distrito', '==', filters.distrito));
   }
-  if (selectedContractor) {
-    // Evita query inválida: no repetir where('contratista','==',...) en asesor/supervisor.
-    if (rol === 'asesor' || rol === 'supervisor') {
-      if (contractor && selectedContractor !== contractor) {
-        constraints.push(where('contratista', '==', '__NO_MATCH__'));
-      }
-    } else {
-      constraints.push(where('contratista', '==', selectedContractor));
-    }
+  if (selectedContractor && !(rol === 'asesor' || rol === 'supervisor')) {
+    constraints.push(where('contratista', '==', selectedContractor));
   }
 
   const sotSearch = filters.searchSot?.trim();
