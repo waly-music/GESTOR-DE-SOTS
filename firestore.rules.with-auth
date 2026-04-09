@@ -62,7 +62,7 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    match /ordenes/{id} {
+    match /sots/{id} {
       allow read: if signedIn() && canReadOrden(resource.data);
       allow create: if isAdmin();
       allow update: if isAdmin() ||

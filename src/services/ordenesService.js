@@ -18,10 +18,43 @@ import {
 import { db } from './firebase';
 import { mergeFiltrosFromExcelRows } from './filtrosService';
 import { chunkArray } from '../utils/chunk';
+import { mapExcelGestionToTipo } from '../utils/excelGestionMap';
 import { isAdmin, normalizeRole } from '../utils/roles';
 import { normalizeSotDisplay, sotToDocId } from '../utils/sotId';
 
-const COL = 'ordenes';
+/** Colección principal de órdenes SOT en Firestore. */
+const COL = 'sots';
+
+/**
+ * Campos de gestión derivados de la columna Gestión del Excel.
+ * @param {string} [gestionRaw]
+ */
+function excelImportGestionFields(gestionRaw) {
+  const raw = String(gestionRaw ?? '').trim();
+  const tipo = mapExcelGestionToTipo(raw);
+  if (tipo) {
+    return {
+      gestion: {
+        tipoGestion: tipo,
+        fecha: null,
+        rangoHorario: null,
+        usuarioId: 'import-excel',
+        usuarioEmail: 'excel@import.local',
+        usuarioNombre: 'Importación Excel',
+        timestamp: serverTimestamp(),
+      },
+      tieneGestion: true,
+      gestionTipo: tipo,
+      gestionExcelRaw: null,
+    };
+  }
+  return {
+    gestion: null,
+    tieneGestion: false,
+    gestionTipo: null,
+    gestionExcelRaw: raw || null,
+  };
+}
 
 /**
  * @param {import('firebase/firestore').Query} q
@@ -63,7 +96,7 @@ export async function fetchOrdenDocsByIds(docIds) {
 
 /**
  * Importa filas Excel con lógica: insertar nuevas, actualizar sin gestión, no tocar con gestión.
- * @param {Array<{region:string,departamento:string,distrito:string,contratista:string,sot:string}>} rows
+ * @param {Array<{region:string,departamento:string,distrito:string,contratista:string,sot:string,gestionRaw?:string}>} rows
  * @param {(info: { phase: string, done: number, total: number }) => void} [onProgress]
  */
 export async function importExcelRows(rows, onProgress) {
@@ -113,6 +146,7 @@ export async function importExcelRows(rows, onProgress) {
 
   for (const { id, row } of toCreate) {
     const ref = doc(db, COL, id);
+    const g = excelImportGestionFields(row.gestionRaw);
     ops.push({
       ref,
       data: {
@@ -121,9 +155,7 @@ export async function importExcelRows(rows, onProgress) {
         departamento: row.departamento,
         distrito: row.distrito,
         contratista: row.contratista,
-        gestion: null,
-        tieneGestion: false,
-        gestionTipo: null,
+        ...g,
         historial: [],
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -135,6 +167,7 @@ export async function importExcelRows(rows, onProgress) {
 
   for (const { id, row } of toUpdate) {
     const ref = doc(db, COL, id);
+    const g = excelImportGestionFields(row.gestionRaw);
     ops.push({
       ref,
       data: {
@@ -143,6 +176,7 @@ export async function importExcelRows(rows, onProgress) {
         departamento: row.departamento,
         distrito: row.distrito,
         contratista: row.contratista,
+        ...g,
         updatedAt: serverTimestamp(),
         lastExcelImportAt: serverTimestamp(),
       },
@@ -163,10 +197,12 @@ export async function importExcelRows(rows, onProgress) {
 
   await mergeFiltrosFromExcelRows(rows);
 
+  const written = toCreate.length + toUpdate.length;
   return {
     created: toCreate.length,
     updated: toUpdate.length,
     skippedWithGestion: skippedWithGestion.length,
+    totalCargados: written,
   };
 }
 
@@ -388,4 +424,4 @@ export async function fetchAllOrdenesForExport(profile, filters, maxRows = 5000)
   return all;
 }
 
-export { COL as ORDENES_COLLECTION };
+export { COL as SOTS_COLLECTION, COL as ORDENES_COLLECTION };

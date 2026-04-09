@@ -4,6 +4,15 @@ const COL_ALIASES = {
   DISTRITO: ['distrito', 'DISTRITO'],
   CONTRATISTA: ['contratista', 'CONTRATISTA'],
   SOT: ['sot', 'SOT', 'orden', 'OT'],
+  GESTION: [
+    'gestion',
+    'gestión',
+    'GESTION',
+    'GESTIÓN',
+    'estado',
+    'ESTADO',
+    'estado gestion',
+  ],
 };
 
 function normalizeHeader(h) {
@@ -29,7 +38,7 @@ function findColumnIndex(headers, keys) {
  * Parsea la primera hoja. Optimizado: lee matriz en una pasada.
  * Carga SheetJS de forma diferida para no inflar el bundle principal.
  * @param {ArrayBuffer} arrayBuffer
- * @returns {Promise<{ rows: Array<{region:string,departamento:string,distrito:string,contratista:string,sot:string}>, errors: string[] }>}
+ * @returns {Promise<{ rows: Array<{region:string,departamento:string,distrito:string,contratista:string,sot:string,gestionRaw:string}>, errors: string[] }>}
  */
 export async function parseExcelOrdenes(arrayBuffer) {
   const XLSX = await import('xlsx');
@@ -60,6 +69,7 @@ export async function parseExcelOrdenes(arrayBuffer) {
   const idxDis = findColumnIndex(headerRow, COL_ALIASES.DISTRITO);
   const idxCon = findColumnIndex(headerRow, COL_ALIASES.CONTRATISTA);
   const idxSot = findColumnIndex(headerRow, COL_ALIASES.SOT);
+  const idxGestion = findColumnIndex(headerRow, COL_ALIASES.GESTION);
 
   const errors = [];
   if (idxSot < 0) errors.push('No se encontró la columna SOT.');
@@ -71,7 +81,7 @@ export async function parseExcelOrdenes(arrayBuffer) {
     return { rows: [], errors };
   }
 
-  /** @type {Array<{region:string,departamento:string,distrito:string,contratista:string,sot:string}>} */
+  /** @type {Array<{region:string,departamento:string,distrito:string,contratista:string,sot:string,gestionRaw:string}>} */
   const rows = [];
   const seen = new Set();
 
@@ -85,6 +95,8 @@ export async function parseExcelOrdenes(arrayBuffer) {
     const departamento = String(row[idxDep] ?? '').trim();
     const distrito = String(row[idxDis] ?? '').trim();
     const contratista = String(row[idxCon] ?? '').trim();
+    const gestionRaw =
+      idxGestion >= 0 ? String(row[idxGestion] ?? '').trim() : '';
 
     const key = `${sot}|${contratista}`;
     if (seen.has(key)) continue;
@@ -96,6 +108,7 @@ export async function parseExcelOrdenes(arrayBuffer) {
       distrito,
       contratista,
       sot,
+      gestionRaw,
     });
   }
 

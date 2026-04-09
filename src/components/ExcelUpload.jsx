@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { parseExcelOrdenes } from '../utils/excelParser';
 import { importExcelRows } from '../services/ordenesService';
+import { ExcelPreviewModal } from './ExcelPreviewModal';
 import { Spinner } from './Spinner';
 
 export function ExcelUpload({ onDone }) {
@@ -8,6 +9,8 @@ export function ExcelUpload({ onDone }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
   const [progress, setProgress] = useState(null);
+  const [previewRows, setPreviewRows] = useState(null);
+  const [parseErrors, setParseErrors] = useState(null);
 
   async function handleFile(e) {
     const file = e.target.files?.[0];
@@ -17,22 +20,38 @@ export function ExcelUpload({ onDone }) {
     setBusy(true);
     setMsg(null);
     setProgress(null);
+    setPreviewRows(null);
+    setParseErrors(null);
     try {
       const buf = await file.arrayBuffer();
       const { rows, errors } = await parseExcelOrdenes(buf);
       if (errors.length) {
-        setMsg({ type: 'err', text: errors.join(' ') });
+        setParseErrors(errors.join(' '));
         return;
       }
       if (!rows.length) {
         setMsg({ type: 'err', text: 'No hay filas válidas en el archivo.' });
         return;
       }
+      setPreviewRows(rows);
+    } catch (err) {
+      setMsg({ type: 'err', text: err.message ?? String(err) });
+    } finally {
+      setBusy(false);
+    }
+  }
 
-      const result = await importExcelRows(rows, (p) => setProgress(p));
+  async function confirmImport() {
+    if (!previewRows?.length) return;
+    setBusy(true);
+    setMsg(null);
+    setProgress(null);
+    try {
+      const result = await importExcelRows(previewRows, (p) => setProgress(p));
+      setPreviewRows(null);
       setMsg({
         type: 'ok',
-        text: `Importación: ${result.created} nuevas, ${result.updated} actualizadas, ${result.skippedWithGestion} omitidas (ya tenían gestión).`,
+        text: `Éxito: se cargaron ${result.totalCargados} registro(s) en Firestore (colección «sots»): ${result.created} nuevos, ${result.updated} actualizados, ${result.skippedWithGestion} omitidos (ya tenían gestión en el sistema).`,
       });
       onDone?.();
     } catch (err) {
@@ -43,13 +62,17 @@ export function ExcelUpload({ onDone }) {
     }
   }
 
+  function cancelPreview() {
+    setPreviewRows(null);
+  }
+
   return (
     <div className="rounded-xl border border-dashed border-slate-300 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-center gap-3">
         <input
           ref={inputRef}
           type="file"
-          accept=".xlsx,.xls"
+          accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
           className="hidden"
           onChange={handleFile}
           disabled={busy}
@@ -60,13 +83,19 @@ export function ExcelUpload({ onDone }) {
           onClick={() => inputRef.current?.click()}
           className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-brand-700 disabled:opacity-60"
         >
-          {busy ? <Spinner className="h-4 w-4 border-white border-r-transparent" /> : null}
-          Subir Excel
+          {busy && !previewRows ? (
+            <Spinner className="h-4 w-4 border-white border-r-transparent" />
+          ) : null}
+          Cargar Excel
         </button>
         <p className="text-sm text-slate-600">
-          Columnas: REGION, DEPARTAMENTO, DISTRITO, CONTRATISTA, SOT
+          Columnas: SOT, Región, Departamento, Distrito, Contratista y opcionalmente
+          Gestión / Estado. Solo se aceptan archivos .xlsx o .xls.
         </p>
       </div>
+      {parseErrors && (
+        <p className="mt-2 text-sm text-red-700">{parseErrors}</p>
+      )}
       {progress && (
         <p className="mt-2 text-xs text-slate-500">
           Procesando… {progress.phase} ({progress.done}/{progress.total})
@@ -81,6 +110,14 @@ export function ExcelUpload({ onDone }) {
           {msg.text}
         </p>
       )}
+
+      <ExcelPreviewModal
+        open={Boolean(previewRows?.length)}
+        rows={previewRows ?? []}
+        busy={busy}
+        onCancel={cancelPreview}
+        onConfirm={confirmImport}
+      />
     </div>
   );
 }

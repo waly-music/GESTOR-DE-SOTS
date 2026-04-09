@@ -175,8 +175,10 @@ export default function Dashboard() {
                 Administración — Excel y usuarios
               </h2>
               <p className="mt-1 text-sm text-slate-600">
-                <strong>Importar Excel:</strong> columnas REGION, DEPARTAMENTO,
-                DISTRITO, CONTRATISTA, SOT.{' '}
+                <strong>Cargar Excel:</strong> vista previa y guardado en Firestore
+                (colección <code className="rounded bg-slate-100 px-1 text-xs">sots</code>).
+                Columnas SOT, Región, Departamento, Distrito, Contratista; opcional
+                Gestión.{' '}
                 <Link
                   to="/admin"
                   className="font-medium text-brand-700 underline hover:text-brand-800"

@@ -20,9 +20,12 @@ export default function Administration() {
           Base de órdenes (Excel)
         </h2>
         <p className="text-sm text-slate-600">
-          Columnas: REGION, DEPARTAMENTO, DISTRITO, CONTRATISTA, SOT. Las órdenes
-          nuevas se insertan; las existentes sin gestión se actualizan; si ya tienen
-          gestión, no se modifican.
+          Use <strong>Cargar Excel</strong> para elegir el archivo; verá una vista previa
+          antes de guardar en la colección <code className="rounded bg-slate-100 px-1">sots</code>.
+          Columnas: SOT, Región, Departamento, Distrito, Contratista; opcionalmente
+          Gestión/Estado. Los datos nuevos se insertan; sin gestión previa en el sistema
+          se actualizan; si ya hay gestión registrada en la app, la fila no se
+          sobrescribe.
         </p>
         <ExcelUpload onDone={() => {}} />
       </section>
