@@ -14,6 +14,8 @@ import { MetricCards } from '../components/MetricCards';
 import { OrdersTable } from '../components/OrdersTable';
 import { DashboardCharts } from '../components/DashboardCharts';
 import { useSotsSeed } from '../hooks/useSotsSeed';
+import { isAsesor, isSupervisor } from '../utils/roles';
+import { updateOrdenObservacion } from '../services/ordenesService';
 
 const STORAGE_FILTERS_KEY = 'sot_dashboard_filters_v2';
 
@@ -86,6 +88,7 @@ export default function Dashboard() {
   const [modalOrden, setModalOrden] = useState(null);
   const [exporting, setExporting] = useState(false);
   const [searchDebounced, setSearchDebounced] = useState(filters.searchSot);
+  const [savingObsId, setSavingObsId] = useState(null);
 
   const profileForQuery = useMemo(
     () =>
@@ -95,7 +98,15 @@ export default function Dashboard() {
     [profile],
   );
 
-  const seed = useSotsSeed(profileForQuery);
+  const roleNeedsStrictFilters = isAsesor(profile) || isSupervisor(profile);
+  const missingRequiredFilters =
+    roleNeedsStrictFilters &&
+    (!filters.region ||
+      !filters.departamento ||
+      !filters.distrito ||
+      !filters.contratista);
+
+  const seed = useSotsSeed(profileForQuery, !missingRequiredFilters);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -152,6 +163,9 @@ export default function Dashboard() {
 
   const rowsFiltered = useMemo(
     () =>
+      missingRequiredFilters
+        ? []
+        :
       seed.rows.filter((item) => {
         const matchesSot =
           !searchDebounced ||
@@ -173,6 +187,7 @@ export default function Dashboard() {
       filters.distrito,
       filters.contratista,
       searchDebounced,
+      missingRequiredFilters,
     ],
   );
 
@@ -396,6 +411,11 @@ export default function Dashboard() {
           </button>
         </div>
         {filterFields}
+        {missingRequiredFilters && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            Seleccione todos los filtros para ver las órdenes.
+          </div>
+        )}
       </section>
 
       <OrdersTable
@@ -409,6 +429,16 @@ export default function Dashboard() {
         onPrev={() => {}}
         onNext={() => {}}
         showPagination={false}
+        savingObservacionId={savingObsId}
+        onSaveObservacion={async (orden, value) => {
+          setSavingObsId(orden.id);
+          try {
+            await updateOrdenObservacion(orden.id, value);
+            await seed.reload();
+          } finally {
+            setSavingObsId(null);
+          }
+        }}
         onGestionar={(o) => setModalOrden(o)}
       />
 

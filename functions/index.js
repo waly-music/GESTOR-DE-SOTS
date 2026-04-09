@@ -62,8 +62,6 @@ async function applyMetricDelta(docId, delta) {
 exports.createUserWithProfile = onCall(
   {
     region: 'us-central1',
-    // En callable functions, Firebase gestiona automáticamente preflight/CORS.
-    // true evita rechazos por origen al usar httpsCallable desde web.app y localhost.
     cors: true,
   },
   async (request) => {

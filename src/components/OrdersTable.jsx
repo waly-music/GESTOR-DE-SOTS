@@ -1,6 +1,7 @@
 import { rowClassForGestion } from '../utils/gestionColors';
 import { formatDateOnly } from '../utils/gestionColors';
 import { StatusBadge } from './StatusBadge';
+import { useEffect, useState } from 'react';
 
 function labelGestionadoPor(o) {
   const gp = o.gestionadoPor;
@@ -26,6 +27,9 @@ export function OrdersTable({
   onNext,
   onGestionar,
   showPagination = true,
+  onSaveObservacion,
+  canEditObservacion = true,
+  savingObservacionId = null,
 }) {
   if (error) {
     return (
@@ -49,6 +53,7 @@ export function OrdersTable({
               <th className="px-3 py-3">Contratista</th>
               <th className="px-3 py-3">Gestión</th>
               <th className="px-3 py-3">Gestionado por</th>
+              <th className="px-3 py-3">Observación</th>
               <th className="px-3 py-3">Detalle</th>
               <th className="px-3 py-3 w-36" />
             </tr>
@@ -56,14 +61,14 @@ export function OrdersTable({
           <tbody className="divide-y divide-slate-100">
             {loading && !rows.length ? (
               <tr>
-                <td colSpan={9} className="px-3 py-8 text-center text-slate-500">
+                <td colSpan={10} className="px-3 py-8 text-center text-slate-500">
                   Cargando…
                 </td>
               </tr>
             ) : null}
             {!loading && !rows.length ? (
               <tr>
-                <td colSpan={9} className="px-3 py-8 text-center text-slate-500">
+                <td colSpan={10} className="px-3 py-8 text-center text-slate-500">
                   No hay resultados para los filtros actuales.
                 </td>
               </tr>
@@ -87,6 +92,14 @@ export function OrdersTable({
                   </td>
                   <td className="max-w-[14rem] px-3 py-2 text-xs text-slate-700">
                     {labelGestionadoPor(o)}
+                  </td>
+                  <td className="min-w-[14rem] px-3 py-2">
+                    <ObservacionCell
+                      value={o.observacion ?? ''}
+                      disabled={!canEditObservacion}
+                      saving={savingObservacionId === o.id}
+                      onSave={(nextValue) => onSaveObservacion?.(o, nextValue)}
+                    />
                   </td>
                   <td className="px-3 py-2 text-xs text-slate-600">
                     {tipo === 'CONFIRMADO_FUTURO' || tipo === 'CONFIRMADO_HOY' ? (
@@ -140,6 +153,65 @@ export function OrdersTable({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ObservacionCell({ value, onSave, disabled, saving }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value ?? '');
+
+  useEffect(() => {
+    if (!editing) setDraft(value ?? '');
+  }, [value, editing]);
+
+  if (disabled) {
+    return <span className="text-xs text-slate-600">{value || '—'}</span>;
+  }
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        className="max-w-[220px] truncate rounded-md bg-slate-50 px-2 py-1 text-left text-xs text-slate-700 hover:bg-slate-100"
+        title={value || 'Agregar observación'}
+      >
+        {value || 'Agregar observación'}
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      <input
+        value={draft}
+        onChange={(e) => setDraft(e.target.value.slice(0, 120))}
+        maxLength={120}
+        className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
+        placeholder="Observación (máx. 120)"
+      />
+      <button
+        type="button"
+        disabled={saving}
+        onClick={async () => {
+          await onSave?.(draft);
+          setEditing(false);
+        }}
+        className="rounded-md bg-emerald-600 px-2 py-1 text-xs text-white disabled:opacity-60"
+      >
+        {saving ? '...' : 'OK'}
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setDraft(value ?? '');
+          setEditing(false);
+        }}
+        className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600"
+      >
+        ✕
+      </button>
     </div>
   );
 }

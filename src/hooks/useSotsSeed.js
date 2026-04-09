@@ -8,8 +8,9 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
  * Carga una muestra acotada de SOTs una sola vez por sesión para filtros instantáneos.
  * Reduce lecturas al evitar consultas por cada cambio de filtro.
  * @param {{ rol: string, contratista: string|null } | null} profile
+ * @param {boolean} [enabled]
  */
-export function useSotsSeed(profile) {
+export function useSotsSeed(profile, enabled = true) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -23,7 +24,7 @@ export function useSotsSeed(profile) {
   );
 
   const load = useCallback(async () => {
-    if (!profile?.rol) {
+    if (!enabled || !profile?.rol) {
       setRows([]);
       setLoading(false);
       setError(null);
@@ -73,7 +74,7 @@ export function useSotsSeed(profile) {
     } finally {
       setLoading(false);
     }
-  }, [cacheKey, profile?.rol, profile?.contratista]);
+  }, [cacheKey, profile?.rol, profile?.contratista, enabled]);
 
   useEffect(() => {
     load();

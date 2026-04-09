@@ -73,6 +73,11 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /links/{id} {
+      allow read: if signedIn() && canReadAllSots();
+      allow create, update, delete: if isAdmin() || isSupervisor();
+    }
+
     match /sots/{id} {
       allow read: if signedIn() && canReadAllSots();
       allow create: if isAdmin() || isSupervisor();

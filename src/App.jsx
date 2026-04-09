@@ -9,6 +9,7 @@ import { Spinner } from './components/Spinner';
 const Login = lazy(() => import('./pages/Login'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Administration = lazy(() => import('./pages/Administration'));
+const Links = lazy(() => import('./pages/Links'));
 
 export default function App() {
   return (
@@ -48,6 +49,18 @@ export default function App() {
                 <Layout>
                   <Suspense fallback={<Spinner />}>
                     <Administration />
+                  </Suspense>
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/enlaces"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Suspense fallback={<Spinner />}>
+                    <Links />
                   </Suspense>
                 </Layout>
               </ProtectedRoute>

@@ -66,6 +66,9 @@ export function Layout({ children }) {
                 Usuarios
               </NavLink>
             )}
+            <NavLink to="/enlaces" className={linkClass}>
+              Enlaces
+            </NavLink>
             <button
               type="button"
               className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-slate-400"

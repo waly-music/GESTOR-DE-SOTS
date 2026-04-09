@@ -7,6 +7,7 @@ import {
   getCountFromServer,
   getDocs,
   limit,
+  updateDoc,
   orderBy,
   query,
   runTransaction,
@@ -408,6 +409,19 @@ export async function saveGestion(ordenId, gestion, actor) {
       historial,
       updatedAt: serverTimestamp(),
     });
+  });
+}
+
+/**
+ * Guarda observación corta editable por cualquier rol operativo.
+ * @param {string} ordenId
+ * @param {string} observacion
+ */
+export async function updateOrdenObservacion(ordenId, observacion) {
+  const ref = doc(db, COL, ordenId);
+  await updateDoc(ref, {
+    observacion: String(observacion ?? '').trim().slice(0, 120),
+    updatedAt: serverTimestamp(),
   });
 }
 
