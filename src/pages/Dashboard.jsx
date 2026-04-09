@@ -78,7 +78,7 @@ export default function Dashboard() {
   const profileForQuery = useMemo(
     () =>
       profile
-        ? { role: profile.role, contratista: profile.contratista ?? null }
+        ? { rol: profile.rol, contratista: profile.contratista ?? null }
         : null,
     [profile],
   );

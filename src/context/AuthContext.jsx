@@ -28,7 +28,7 @@ export function AuthProvider({ children }) {
       id: p.uid,
       email: p.email,
       displayName: p.displayName,
-      role: p.role,
+      rol: p.rol,
       contratista: p.contratista || null,
     });
   }, []);

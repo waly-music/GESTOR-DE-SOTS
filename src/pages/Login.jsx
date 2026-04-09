@@ -46,7 +46,7 @@ export default function Login() {
           <p className="mt-2 text-sm">
             Un administrador debe crear el documento{' '}
             <code className="rounded bg-amber-100 px-1">users/{user.uid}</code> con
-            el campo <code className="rounded bg-amber-100 px-1">role</code> (admin,
+            el campo <code className="rounded bg-amber-100 px-1">rol</code> (admin,
             supervisor o asesor).
           </p>
         </div>

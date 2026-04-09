@@ -362,7 +362,7 @@ export async function saveGestion(ordenId, gestion, actor) {
 
 /**
  * Exportación: recorre resultados con la misma lógica de filtros (máx. maxRows).
- * @param {{ role: string, contratista: string|null }} profile
+ * @param {{ rol: string, contratista: string|null }} profile
  * @param {Parameters<typeof buildOrdenesQuery>[1]} filters
  * @param {number} [maxRows]
  */

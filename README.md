@@ -27,7 +27,7 @@ Edite `.env` y complete los valores `VITE_FIREBASE_*` del paso anterior. Desplie
 ### Usuarios y sesión
 
 - En **Firebase Console** → **Authentication**, habilite **Correo/contraseña**.
-- Cada usuario debe tener un documento en Firestore `users/{UID}` (UID = Authentication) con `role` y `contratista` (véase la sección de usuarios más abajo). Los administradores pueden crear usuarios con la Cloud Function `createUserWithProfile` desde la app.
+- Cada usuario debe tener un documento en Firestore `users/{UID}` (UID = Authentication) con `rol` y `contratista` (véase la sección de usuarios más abajo). Los administradores pueden crear usuarios con la Cloud Function `createUserWithProfile` desde la app.
 
 ### Modo demo sin login (opcional, `VITE_DISABLE_AUTH=true`)
 
@@ -79,7 +79,7 @@ Si la app muestra un error de índice faltante en la consola del navegador, use 
 {
   "email": "admin@empresa.com",
   "displayName": "Admin",
-  "role": "admin",
+  "rol": "admin",
   "contratista": null,
   "createdAt": ...,
   "updatedAt": ...
@@ -103,8 +103,8 @@ firebase deploy --only functions
 
 La función está definida en `functions/index.js` con región `us-central1` (alineada con `VITE_FIREBASE_FUNCTIONS_REGION` en el front).
 
-Valores de `role`: `admin`, `supervisor`, `asesor`.  
-Para **supervisor** y **asesor**, `contratista` debe coincidir con la columna **CONTRATISTA** del Excel.
+Valores de `rol`: `admin`, `supervisor`, `asesor`.  
+El campo `contratista` en el perfil es opcional (referencia); la columna **CONTRATISTA** del Excel describe la empresa en cada SOT.
 
 La tabla inferior permite **editar** rol y contratista de usuarios ya existentes.
 

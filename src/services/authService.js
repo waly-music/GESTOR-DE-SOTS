@@ -59,23 +59,24 @@ export async function getUserProfile(uid) {
   const snap = await getDoc(ref);
   if (!snap.exists()) return null;
   const data = snap.data();
-  const role = pickRoleFromUserDoc(data);
-  return { id: snap.id, ...data, role };
+  const rol = pickRoleFromUserDoc(data);
+  return { id: snap.id, ...data, rol };
 }
 
 /**
  * Crear perfil inicial (p.ej. primer admin manual en consola o esta función solo en dev).
  * @param {string} uid
- * @param {{ email: string, displayName?: string, role?: string, contratista?: string|null }} data
+ * @param {{ email: string, displayName?: string, rol?: string, role?: string, contratista?: string|null }} data
  */
 export async function ensureUserDocument(uid, data) {
   const ref = doc(db, USERS, uid);
   const snap = await getDoc(ref);
   if (snap.exists()) return;
+  const rolRaw = data.rol ?? data.role;
   await setDoc(ref, {
     email: data.email,
     displayName: data.displayName ?? '',
-    role: data.role ?? 'asesor',
+    rol: typeof rolRaw === 'string' && rolRaw.trim() ? rolRaw.trim() : 'asesor',
     contratista: data.contratista ?? null,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),

@@ -10,7 +10,7 @@ const defaultProfile = () => ({
   uid: DEMO_LOCAL_UID,
   email: 'demo@local',
   displayName: 'Usuario local',
-  role: ROLES.ADMIN,
+  rol: ROLES.ADMIN,
   contratista: '',
 });
 
@@ -32,7 +32,7 @@ export function getDemoProfile() {
     ...base,
     ...raw,
     uid: DEMO_LOCAL_UID,
-    role: canonicalRole(raw.role ?? base.role),
+    rol: canonicalRole(raw.rol ?? raw.role ?? base.rol),
     contratista:
       raw.contratista != null && String(raw.contratista).trim() !== ''
         ? String(raw.contratista).trim()
@@ -41,7 +41,7 @@ export function getDemoProfile() {
 }
 
 /**
- * @param {Partial<{ email: string, displayName: string, role: string, contratista: string }>} patch
+ * @param {Partial<{ email: string, displayName: string, rol: string, contratista: string }>} patch
  */
 export function setDemoProfile(patch) {
   const cur = getDemoProfile();

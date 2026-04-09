@@ -13,7 +13,7 @@ export function DemoProfileModal({ open, onClose }) {
   const { updateDemoProfile } = useAuth();
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [role, setRole] = useState(ROLES.ADMIN);
+  const [rol, setRol] = useState(ROLES.ADMIN);
   const [contratista, setContratista] = useState('');
 
   useEffect(() => {
@@ -21,7 +21,7 @@ export function DemoProfileModal({ open, onClose }) {
     const p = getDemoProfile();
     setEmail(p.email);
     setDisplayName(p.displayName);
-    setRole(p.role);
+    setRol(p.rol ?? p.role);
     setContratista(p.contratista ?? '');
   }, [open]);
 
@@ -30,9 +30,9 @@ export function DemoProfileModal({ open, onClose }) {
     updateDemoProfile({
       email: email.trim() || 'demo@local',
       displayName: displayName.trim(),
-      role,
+      rol,
       contratista:
-        role === ROLES.ADMIN ? '' : contratista.trim(),
+        rol === ROLES.ADMIN ? '' : contratista.trim(),
     });
     onClose();
   }
@@ -86,8 +86,8 @@ export function DemoProfileModal({ open, onClose }) {
               Rol
             </label>
             <select
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
+              value={rol}
+              onChange={(e) => setRol(e.target.value)}
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
             >
               {ROLE_OPTIONS.map((r) => (
@@ -104,7 +104,7 @@ export function DemoProfileModal({ open, onClose }) {
             <input
               value={contratista}
               onChange={(e) => setContratista(e.target.value)}
-              disabled={role === ROLES.ADMIN}
+              disabled={rol === ROLES.ADMIN}
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100"
               placeholder="Igual que en Excel"
             />

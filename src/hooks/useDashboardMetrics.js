@@ -8,7 +8,7 @@ export function useDashboardMetrics(profile) {
   const [error, setError] = useState(null);
 
   const refresh = useCallback(async () => {
-    if (!profile?.role || !canViewGlobalMetrics(profile)) {
+    if (!profile?.rol || !canViewGlobalMetrics(profile)) {
       setMetrics(null);
       setLoading(false);
       return;
@@ -17,7 +17,7 @@ export function useDashboardMetrics(profile) {
     setError(null);
     try {
       const m = await getDashboardMetrics({
-        role: profile.role,
+        rol: profile.rol,
         contratista: profile.contratista ?? null,
       });
       setMetrics(m);

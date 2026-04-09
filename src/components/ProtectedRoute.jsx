@@ -30,7 +30,7 @@ export function ProtectedRoute({ children, roles }) {
             <>
               No existe un perfil en Firestore para su usuario. Cree el documento{' '}
               <code className="rounded bg-slate-200 px-1">users/{user?.uid}</code>{' '}
-              con campo <code className="rounded bg-slate-200 px-1">role</code>{' '}
+              con campo <code className="rounded bg-slate-200 px-1">rol</code>{' '}
               (admin, supervisor o asesor).
             </>
           )}

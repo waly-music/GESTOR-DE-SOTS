@@ -31,40 +31,49 @@ export function canonicalRole(role) {
 }
 
 /**
+ * Campo en Firestore: `rol` (compat: lectura de `role` / `Role` antiguos).
  * @param {Record<string, unknown> | null | undefined} data documento users de Firestore
  */
 export function pickRoleFromUserDoc(data) {
   if (!data || typeof data !== 'object') return '';
   const d = /** @type {Record<string, unknown>} */ (data);
   const raw =
-    d.role ??
-    d.Role ??
     d.rol ??
     d.Rol ??
+    d.role ??
+    d.Role ??
     d.userRole ??
     d['user-role'];
   return canonicalRole(raw);
 }
 
 /**
- * @param {{ role?: string } | null | undefined} profile
+ * Rol canónico del perfil en la app (propiedad `rol`).
+ * @param {{ rol?: unknown, role?: unknown } | null | undefined} profile
+ */
+export function profileRol(profile) {
+  return canonicalRole(profile?.rol ?? profile?.role);
+}
+
+/**
+ * @param {{ rol?: unknown, role?: unknown } | null | undefined} profile
  */
 export function isAdmin(profile) {
-  return canonicalRole(profile?.role) === ROLES.ADMIN;
+  return profileRol(profile) === ROLES.ADMIN;
 }
 
 /**
- * @param {{ role?: string } | null | undefined} profile
+ * @param {{ rol?: unknown, role?: unknown } | null | undefined} profile
  */
 export function isSupervisor(profile) {
-  return canonicalRole(profile?.role) === ROLES.SUPERVISOR;
+  return profileRol(profile) === ROLES.SUPERVISOR;
 }
 
 /**
- * @param {{ role?: string } | null | undefined} profile
+ * @param {{ rol?: unknown, role?: unknown } | null | undefined} profile
  */
 export function isAsesor(profile) {
-  return canonicalRole(profile?.role) === ROLES.ASESOR;
+  return profileRol(profile) === ROLES.ASESOR;
 }
 
 /** Panel de usuarios (solo admin). */
@@ -88,10 +97,10 @@ export function canViewGlobalMetrics(profile) {
 }
 
 /**
- * @param {{ role?: string } | null | undefined} profile
+ * @param {{ rol?: unknown, role?: unknown } | null | undefined} profile
  * @param {string[]} allowed e.g. [ROLES.ADMIN]
  */
 export function hasRole(profile, allowed) {
-  const r = canonicalRole(profile?.role);
+  const r = profileRol(profile);
   return allowed.some((a) => canonicalRole(a) === r);
 }

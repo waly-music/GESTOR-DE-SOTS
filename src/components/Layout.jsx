@@ -62,12 +62,12 @@ export function Layout({ children }) {
             <span className="max-w-[200px] truncate sm:max-w-none" title={user?.email}>
               {user?.email}
             </span>
-            {profile?.role && (
+            {profile?.rol && (
               <span
                 className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium uppercase text-slate-700"
-                title="Rol aplicado en la app (desde Firestore)"
+                title="Rol aplicado en la app (desde Firestore, campo rol)"
               >
-                {profile.role}
+                {profile.rol}
               </span>
             )}
             {authDisabled ? (

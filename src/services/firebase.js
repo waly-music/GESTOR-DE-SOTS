@@ -13,31 +13,9 @@ const firebaseConfig = {
   measurementId: "G-RK3Q4HXV2X"
 };
 
-function validateConfig() {
-  const required = [
-    'VITE_FIREBASE_API_KEY',
-    'VITE_FIREBASE_AUTH_DOMAIN',
-    'VITE_FIREBASE_PROJECT_ID',
-    'VITE_FIREBASE_STORAGE_BUCKET',
-    'VITE_FIREBASE_MESSAGING_SENDER_ID',
-    'VITE_FIREBASE_APP_ID',
-  ];
-  const missing = required.filter((k) => !import.meta.env[k]);
-  if (missing.length) {
-    console.warn(
-      '[Firebase] Faltan variables de entorno:',
-      missing.join(', '),
-    );
-  }
-}
-
-validateConfig();
-
 const app = initializeApp(firebaseConfig);
 
-/** Debe coincidir con la región de `createUserWithProfile` en `functions/index.js`. */
-const functionsRegion =
-  import.meta.env.VITE_FIREBASE_FUNCTIONS_REGION || 'us-central1';
+const functionsRegion = import.meta.env.VITE_FIREBASE_FUNCTIONS_REGION || 'us-central1';
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);

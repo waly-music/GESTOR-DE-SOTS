@@ -7,7 +7,7 @@ import { functions } from './firebase';
  *   email: string,
  *   password: string,
  *   displayName?: string,
- *   role: string,
+ *   rol: string,
  *   contratista?: string | null,
  * }} payload
  */

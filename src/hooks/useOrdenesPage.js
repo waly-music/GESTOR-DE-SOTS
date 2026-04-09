@@ -7,7 +7,7 @@ import {
 const PAGE_SIZE = 25;
 
 /**
- * @param {{ role: string, contratista: string|null } | null} profile
+ * @param {{ rol: string, contratista: string|null } | null} profile
  * @param {{
  *   region: string,
  *   departamento: string,
@@ -47,7 +47,7 @@ export function useOrdenesPage(profile, filters) {
   }, [stableFilters, profile, resetPaging]);
 
   useEffect(() => {
-    if (!profile?.role) {
+    if (!profile?.rol) {
       setRows([]);
       setLoading(false);
       return undefined;
@@ -60,7 +60,7 @@ export function useOrdenesPage(profile, filters) {
       pageIndex === 0 ? null : pageCursors[pageIndex - 1] ?? null;
 
     const q = buildOrdenesQuery(
-      { role: profile.role, contratista: profile.contratista ?? null },
+      { rol: profile.rol, contratista: profile.contratista ?? null },
       {
         region: stableFilters.region || undefined,
         departamento: stableFilters.departamento || undefined,

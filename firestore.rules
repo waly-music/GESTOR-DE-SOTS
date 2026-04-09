@@ -35,22 +35,22 @@ service cloud.firestore {
         r == 'asesora' || r == 'Asesora' || r == 'advisor' || r == 'Advisor';
     }
 
-    /** role, Role o rol (Firestore) — alineado con pickRoleFromUserDoc en el front. */
+    /** Campo principal `rol` (compat: `role` / `Role` antiguos). */
     function isAdmin() {
       let d = userData();
       return signedIn() && hasUserDoc() && (
-        roleIsAdmin(d.role) || roleIsAdmin(d.Role) || roleIsAdmin(d.rol)
+        roleIsAdmin(d.rol) || roleIsAdmin(d.role) || roleIsAdmin(d.Role)
       );
     }
 
     function isSupervisor() {
       let d = userData();
-      return roleIsSupervisor(d.role) || roleIsSupervisor(d.Role) || roleIsSupervisor(d.rol);
+      return roleIsSupervisor(d.rol) || roleIsSupervisor(d.role) || roleIsSupervisor(d.Role);
     }
 
     function isAsesor() {
       let d = userData();
-      return roleIsAsesor(d.role) || roleIsAsesor(d.Role) || roleIsAsesor(d.rol);
+      return roleIsAsesor(d.rol) || roleIsAsesor(d.role) || roleIsAsesor(d.Role);
     }
 
     /** Usuario con perfil y rol operativo (lectura de todas las SOT). */

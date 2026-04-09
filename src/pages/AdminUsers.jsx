@@ -16,7 +16,7 @@ function createInitialForm() {
     email: '',
     password: '',
     displayName: '',
-    role: ROLES.ASESOR,
+    rol: ROLES.ASESOR,
     contratista: '',
   };
 }
@@ -56,7 +56,7 @@ export default function AdminUsers({ embedded = false }) {
     setOk(null);
     try {
       await updateUserFields(u.id, {
-        role: u.role,
+        rol: u.rol,
         contratista: u.contratista?.trim() || null,
       });
       setOk('Cambios guardados.');
@@ -75,7 +75,7 @@ export default function AdminUsers({ embedded = false }) {
     const email = createForm.email.trim();
     const password = createForm.password;
     const displayName = createForm.displayName.trim();
-    const role = createForm.role;
+    const rol = createForm.rol;
     const contratista = createForm.contratista.trim();
 
     if (!email || !password) {
@@ -92,9 +92,9 @@ export default function AdminUsers({ embedded = false }) {
         email,
         password,
         displayName,
-        role,
+        rol,
         contratista:
-          role === ROLES.ADMIN ? null : contratista || null,
+          rol === ROLES.ADMIN ? null : contratista || null,
       });
       setOk(
         `Usuario creado en Authentication: ${email}. Ya puede iniciar sesión.`,
@@ -186,9 +186,9 @@ export default function AdminUsers({ embedded = false }) {
               Rol
             </label>
             <select
-              value={createForm.role}
+              value={createForm.rol}
               onChange={(e) =>
-                setCreateForm((f) => ({ ...f, role: e.target.value }))
+                setCreateForm((f) => ({ ...f, rol: e.target.value }))
               }
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
             >
@@ -211,7 +211,7 @@ export default function AdminUsers({ embedded = false }) {
                   contratista: e.target.value,
                 }))
               }
-              disabled={createForm.role === ROLES.ADMIN}
+              disabled={createForm.rol === ROLES.ADMIN}
               placeholder="Igual que en columna Excel CONTRATISTA"
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100"
             />
@@ -291,11 +291,11 @@ function UserRow({ user: u, saving, onChange, onSave }) {
       <td className="px-3 py-2 text-slate-800">{u.email}</td>
       <td className="px-3 py-2">
         <select
-          value={u.role ?? ROLES.ASESOR}
+          value={u.rol ?? ROLES.ASESOR}
           onChange={(e) =>
             onChange((list) =>
               list.map((x) =>
-                x.id === u.id ? { ...x, role: e.target.value } : x,
+                x.id === u.id ? { ...x, rol: e.target.value } : x,
               ),
             )
           }

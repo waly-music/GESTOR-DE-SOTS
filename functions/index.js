@@ -11,7 +11,7 @@ const ALLOWED_ROLES = ['admin', 'supervisor', 'asesor'];
 
 /**
  * Crea usuario en Firebase Auth + documento users/{uid}.
- * Solo invocable por un usuario con role === admin en Firestore.
+ * Solo invocable por un usuario con rol === admin en Firestore.
  */
 exports.createUserWithProfile = onCall(
   {
@@ -24,7 +24,10 @@ exports.createUserWithProfile = onCall(
     }
 
     const callerSnap = await db.collection('users').doc(request.auth.uid).get();
-    const callerRole = String(callerSnap.data()?.role ?? '')
+    const callerData = callerSnap.data() || {};
+    const callerRole = String(
+      callerData.rol ?? callerData.role ?? '',
+    )
       .trim()
       .toLowerCase();
     if (!callerSnap.exists || callerRole !== 'admin') {
@@ -40,7 +43,11 @@ exports.createUserWithProfile = onCall(
     const displayName =
       typeof data.displayName === 'string' ? data.displayName.trim() : '';
     const roleRaw = String(
-      typeof data.role === 'string' ? data.role : 'asesor',
+      typeof data.rol === 'string'
+        ? data.rol
+        : typeof data.role === 'string'
+          ? data.role
+          : 'asesor',
     )
       .trim()
       .toLowerCase();
@@ -100,7 +107,7 @@ exports.createUserWithProfile = onCall(
       .set({
         email: emailStr,
         displayName,
-        role: roleStr,
+        rol: roleStr,
         contratista:
           roleStr === 'admin' ? null : contratistaRaw || null,
         createdAt: FieldValue.serverTimestamp(),
