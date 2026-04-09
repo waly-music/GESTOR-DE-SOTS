@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { isAuthDisabled } from '../config/authMode';
 import { useAuth } from '../context/AuthContext';
+import { hasRole } from '../utils/roles';
 import { Spinner } from './Spinner';
 
 export function ProtectedRoute({ children, roles }) {
@@ -37,7 +38,7 @@ export function ProtectedRoute({ children, roles }) {
     );
   }
 
-  if (roles && !roles.includes(profile.role)) {
+  if (roles && !hasRole(profile, roles)) {
     return <Navigate to="/" replace />;
   }
 

@@ -18,8 +18,23 @@ service cloud.firestore {
       return exists(userPath());
     }
 
+    /** Acepta admin / Admin / ADMIN (datos históricos en Firestore). */
     function isAdmin() {
-      return signedIn() && hasUserDoc() && userData().role == 'admin';
+      return signedIn() && hasUserDoc() && (
+        userData().role == 'admin' ||
+        userData().role == 'Admin' ||
+        userData().role == 'ADMIN'
+      );
+    }
+
+    function isSupervisor() {
+      let r = userData().role;
+      return r == 'supervisor' || r == 'Supervisor';
+    }
+
+    function isAsesor() {
+      let r = userData().role;
+      return r == 'asesor' || r == 'Asesor';
     }
 
     function sameContractor(c) {
@@ -30,7 +45,7 @@ service cloud.firestore {
       return isAdmin() ||
         (
           hasUserDoc() &&
-          userData().role in ['supervisor', 'asesor'] &&
+          (isSupervisor() || isAsesor()) &&
           sameContractor(data.contratista)
         );
     }
@@ -52,11 +67,11 @@ service cloud.firestore {
       allow create: if isAdmin();
       allow update: if isAdmin() ||
         (
-          userData().role == 'supervisor' &&
+          isSupervisor() &&
           sameContractor(resource.data.contratista)
         ) ||
         (
-          userData().role == 'asesor' &&
+          isAsesor() &&
           sameContractor(resource.data.contratista) &&
           (
             !('gestion' in resource.data) ||

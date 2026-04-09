@@ -18,6 +18,7 @@ import {
 import { db } from './firebase';
 import { mergeFiltrosFromExcelRows } from './filtrosService';
 import { chunkArray } from '../utils/chunk';
+import { isAdmin, normalizeRole } from '../utils/roles';
 import { normalizeSotDisplay, sotToDocId } from '../utils/sotId';
 
 const COL = 'ordenes';
@@ -34,7 +35,7 @@ export async function countQuery(q) {
  * @param {{ role: string, contratista: string|null }} profile
  */
 function contractorFilter(profile) {
-  if (profile.role === 'admin') return null;
+  if (isAdmin(profile)) return null;
   const c = profile.contratista?.trim();
   if (!c) return '__NONE__';
   return c;
@@ -197,7 +198,7 @@ export function buildOrdenesQuery(profile, filters, pageSize = 25, cursor = null
   if (filters.distrito) {
     constraints.push(where('distrito', '==', filters.distrito));
   }
-  if (filters.contratista && profile.role === 'admin') {
+  if (filters.contratista && isAdmin(profile)) {
     constraints.push(where('contratista', '==', filters.contratista));
   }
 
@@ -311,7 +312,7 @@ export async function saveGestion(
 
     if (
       !forceEdit &&
-      profile.role === 'asesor' &&
+      normalizeRole(profile.role) === 'asesor' &&
       prevGestion?.tipoGestion &&
       prevGestion.usuarioId &&
       prevGestion.usuarioId !== actor.uid

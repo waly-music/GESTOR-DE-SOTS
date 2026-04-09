@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { logout } from '../services/authService';
-import { ROLES } from '../constants/gestion';
+import { isAdmin } from '../utils/roles';
 import { DemoProfileModal } from './DemoProfileModal';
 
 export function Layout({ children }) {
@@ -52,7 +52,7 @@ export function Layout({ children }) {
             <NavLink to="/" className={linkClass} end>
               Dashboard
             </NavLink>
-            {profile?.role === ROLES.ADMIN && (
+            {isAdmin(profile) && (
               <NavLink to="/admin" className={linkClass}>
                 Administración
               </NavLink>

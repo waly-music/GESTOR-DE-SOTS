@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { TIPOS_GESTION, RANGOS_HORARIO } from '../constants/gestion';
 import { saveGestion } from '../services/ordenesService';
 import { formatDateOnly, formatTs } from '../utils/gestionColors';
+import { normalizeRole } from '../utils/roles';
 
 /**
  * @param {{
@@ -20,7 +21,7 @@ export function GestionModal({ open, onClose, orden, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState(null);
 
-  const canEditOthers = profile?.role !== 'asesor';
+  const canEditOthers = normalizeRole(profile?.role) !== 'asesor';
 
   useEffect(() => {
     if (!orden) return;
@@ -41,7 +42,7 @@ export function GestionModal({ open, onClose, orden, onSaved }) {
     tipo === 'CONFIRMADO_FUTURO' || tipo === 'CONFIRMADO_HOY';
 
   const bloqueadoAsesor = useMemo(() => {
-    if (!orden || profile?.role !== 'asesor') return false;
+    if (!orden || normalizeRole(profile?.role) !== 'asesor') return false;
     const g = orden.gestion;
     return Boolean(
       g?.tipoGestion && g?.usuarioId && g.usuarioId !== user?.uid,

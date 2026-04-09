@@ -24,7 +24,10 @@ exports.createUserWithProfile = onCall(
     }
 
     const callerSnap = await db.collection('users').doc(request.auth.uid).get();
-    if (!callerSnap.exists || callerSnap.data().role !== 'admin') {
+    const callerRole = String(callerSnap.data()?.role ?? '')
+      .trim()
+      .toLowerCase();
+    if (!callerSnap.exists || callerRole !== 'admin') {
       throw new HttpsError(
         'permission-denied',
         'Solo los administradores pueden crear usuarios.',
@@ -36,7 +39,11 @@ exports.createUserWithProfile = onCall(
     const passwordStr = typeof data.password === 'string' ? data.password : '';
     const displayName =
       typeof data.displayName === 'string' ? data.displayName.trim() : '';
-    const roleRaw = typeof data.role === 'string' ? data.role : 'asesor';
+    const roleRaw = String(
+      typeof data.role === 'string' ? data.role : 'asesor',
+    )
+      .trim()
+      .toLowerCase();
     const contratistaRaw =
       typeof data.contratista === 'string' ? data.contratista.trim() : '';
 
