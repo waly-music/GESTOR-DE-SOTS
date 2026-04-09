@@ -2,7 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ExcelUpload } from '../components/ExcelUpload';
-import { canLoadExcel, canViewGlobalMetrics } from '../utils/roles';
+import {
+  canLoadExcel,
+  canViewGlobalMetrics,
+  isAdmin,
+} from '../utils/roles';
 import { useDashboardMetrics } from '../hooks/useDashboardMetrics';
 import { useOrdenesPage } from '../hooks/useOrdenesPage';
 import { fetchAllOrdenesForExport } from '../services/ordenesService';
@@ -178,26 +182,37 @@ export default function Dashboard() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">
-                Administración — Excel y usuarios
+                {isAdmin(profile)
+                  ? 'Administración — Excel y usuarios'
+                  : 'Importación — Excel base'}
               </h2>
               <p className="mt-1 text-sm text-slate-600">
                 <strong>Cargar Excel:</strong> vista previa y guardado en Firestore
                 (colección <code className="rounded bg-slate-100 px-1 text-xs">sots</code>).
                 Columnas SOT, Región, Departamento, Distrito, Contratista; opcional
                 Gestión.{' '}
-                <Link
-                  to="/admin"
-                  className="font-medium text-brand-700 underline hover:text-brand-800"
-                >
-                  Crear usuarios y más opciones
-                </Link>
+                {isAdmin(profile) ? (
+                  <Link
+                    to="/admin"
+                    className="font-medium text-brand-700 underline hover:text-brand-800"
+                  >
+                    Crear usuarios y más opciones
+                  </Link>
+                ) : (
+                  <Link
+                    to="/admin"
+                    className="font-medium text-brand-700 underline hover:text-brand-800"
+                  >
+                    Abrir panel de importación
+                  </Link>
+                )}
               </p>
             </div>
             <Link
               to="/admin"
               className="shrink-0 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-brand-700"
             >
-              Panel administración
+              {isAdmin(profile) ? 'Panel administración' : 'Importar / administrar'}
             </Link>
           </div>
           <ExcelUpload

@@ -1,17 +1,23 @@
 import { ExcelUpload } from '../components/ExcelUpload';
+import { useAuth } from '../context/AuthContext';
+import { isAdmin } from '../utils/roles';
 import AdminUsers from './AdminUsers';
 
 /**
- * Panel único para administradores: importar Excel base y crear/editar usuarios.
+ * Excel para admin y supervisor; usuarios del sistema solo para admin.
  */
 export default function Administration() {
+  const { profile } = useAuth();
+  const admin = isAdmin(profile);
+
   return (
     <div className="space-y-10">
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">Administración</h1>
         <p className="mt-1 text-slate-600">
-          Importe el archivo Excel con la base de órdenes y gestione las cuentas de
-          usuario (Firebase Authentication + perfiles en Firestore).
+          {admin
+            ? 'Importe el Excel con la base de órdenes y gestione las cuentas de usuario (Authentication + Firestore).'
+            : 'Importe el Excel con la base de órdenes. La gestión de usuarios la realiza un administrador.'}
         </p>
       </div>
 
@@ -30,17 +36,19 @@ export default function Administration() {
         <ExcelUpload onDone={() => {}} />
       </section>
 
-      <section className="border-t border-slate-200 pt-8">
-        <h2 className="mb-1 text-lg font-semibold text-slate-900">
-          Usuarios del sistema
-        </h2>
-        <p className="mb-4 text-sm text-slate-600">
-          Cree cuentas con correo y contraseña (requiere Cloud Function{' '}
-          <code className="rounded bg-slate-100 px-1">createUserWithProfile</code>{' '}
-          desplegada) o edite rol y contratista.
-        </p>
-        <AdminUsers embedded />
-      </section>
+      {admin && (
+        <section className="border-t border-slate-200 pt-8">
+          <h2 className="mb-1 text-lg font-semibold text-slate-900">
+            Usuarios del sistema
+          </h2>
+          <p className="mb-4 text-sm text-slate-600">
+            Cree cuentas con correo y contraseña (requiere Cloud Function{' '}
+            <code className="rounded bg-slate-100 px-1">createUserWithProfile</code>{' '}
+            desplegada) o edite rol y contratista.
+          </p>
+          <AdminUsers embedded />
+        </section>
+      )}
     </div>
   );
 }

@@ -29,12 +29,12 @@ service cloud.firestore {
 
     function isSupervisor() {
       let r = userData().role;
-      return r == 'supervisor' || r == 'Supervisor';
+      return r == 'supervisor' || r == 'Supervisor' || r == 'SUPERVISOR';
     }
 
     function isAsesor() {
       let r = userData().role;
-      return r == 'asesor' || r == 'Asesor';
+      return r == 'asesor' || r == 'Asesor' || r == 'ASESOR';
     }
 
     function canReadAllSots() {
@@ -50,12 +50,12 @@ service cloud.firestore {
 
     match /config/{docId} {
       allow read: if signedIn();
-      allow write: if isAdmin();
+      allow write: if isAdmin() || isSupervisor();
     }
 
     match /sots/{id} {
       allow read: if signedIn() && canReadAllSots();
-      allow create: if isAdmin();
+      allow create: if isAdmin() || isSupervisor();
       allow update: if isAdmin() || isSupervisor() || isAsesor();
       allow delete: if false;
     }

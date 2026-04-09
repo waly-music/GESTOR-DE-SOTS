@@ -2,8 +2,9 @@ import { ROLES } from '../constants/gestion';
 
 /** @param {unknown} role */
 export function normalizeRole(role) {
-  if (role == null || typeof role !== 'string') return '';
-  return role.trim().toLowerCase();
+  if (role == null) return '';
+  const s = String(role).trim().toLowerCase();
+  return s;
 }
 
 /**
@@ -32,9 +33,14 @@ export function canManageUsers(profile) {
   return isAdmin(profile);
 }
 
-/** Importar Excel base (solo admin). */
+/** Importar Excel base (admin y supervisor; usuarios solo admin). */
 export function canLoadExcel(profile) {
-  return isAdmin(profile);
+  return isAdmin(profile) || isSupervisor(profile);
+}
+
+/** Ruta /admin: Excel (y usuarios si es admin). */
+export function canAccessAdminRoute(profile) {
+  return isAdmin(profile) || isSupervisor(profile);
 }
 
 /** Tarjetas y totales globales en el dashboard (admin y supervisor). */
