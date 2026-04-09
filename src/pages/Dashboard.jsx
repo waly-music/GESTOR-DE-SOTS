@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ExcelUpload } from '../components/ExcelUpload';
-import { isAdmin } from '../utils/roles';
+import { canLoadExcel, canViewGlobalMetrics } from '../utils/roles';
 import { useDashboardMetrics } from '../hooks/useDashboardMetrics';
 import { useOrdenesPage } from '../hooks/useOrdenesPage';
 import { fetchAllOrdenesForExport } from '../services/ordenesService';
@@ -25,6 +25,18 @@ function fechaCitaIso(o) {
   }
 }
 
+function gestionadoPorLabel(o) {
+  const gp = o.gestionadoPor;
+  if (gp?.nombre || gp?.email) {
+    return [gp.nombre, gp.email].filter(Boolean).join(' · ');
+  }
+  const g = o.gestion;
+  if (g?.usuarioNombre || g?.usuarioEmail) {
+    return [g.usuarioNombre, g.usuarioEmail].filter(Boolean).join(' · ');
+  }
+  return '';
+}
+
 function buildExportRows(list) {
   return list.map((o) => ({
     SOT: o.sot,
@@ -33,6 +45,7 @@ function buildExportRows(list) {
     DISTRITO: o.distrito,
     CONTRATISTA: o.contratista,
     GESTION: o.gestionTipo ?? o.gestion?.tipoGestion ?? '',
+    GESTIONADO_POR: gestionadoPorLabel(o),
     FECHA_CITA: fechaCitaIso(o),
     RANGO: o.gestion?.rangoHorario ?? '',
     USUARIO: o.gestion?.usuarioEmail ?? '',
@@ -67,7 +80,9 @@ export default function Dashboard() {
   );
 
   const ordenes = useOrdenesPage(profileForQuery, filters);
-  const metrics = useDashboardMetrics(profileForQuery);
+  const metrics = useDashboardMetrics(
+    canViewGlobalMetrics(profile) ? profileForQuery : null,
+  );
 
   const loadFiltros = useCallback(() => {
     getFiltrosOptions().then(setFiltrosMeta).catch(console.error);
@@ -97,23 +112,12 @@ export default function Dashboard() {
         options={filtrosMeta.distritos}
         onChange={(v) => setFilters((f) => ({ ...f, distrito: v }))}
       />
-      {isAdmin(profile) ? (
-        <FilterSelect
-          label="Contratista"
-          value={filters.contratista}
-          options={filtrosMeta.contratistas}
-          onChange={(v) => setFilters((f) => ({ ...f, contratista: v }))}
-        />
-      ) : (
-        <div>
-          <label className="block text-xs font-medium text-slate-600">
-            Contratista
-          </label>
-          <p className="mt-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-            {profile?.contratista || '—'}
-          </p>
-        </div>
-      )}
+      <FilterSelect
+        label="Contratista"
+        value={filters.contratista}
+        options={filtrosMeta.contratistas}
+        onChange={(v) => setFilters((f) => ({ ...f, contratista: v }))}
+      />
       <div>
         <label className="block text-xs font-medium text-slate-600">
           Buscar SOT
@@ -161,13 +165,15 @@ export default function Dashboard() {
         </p>
       </div>
 
-      <MetricCards
-        metrics={metrics.metrics}
-        loading={metrics.loading}
-        onRefresh={metrics.refresh}
-      />
+      {canViewGlobalMetrics(profile) && (
+        <MetricCards
+          metrics={metrics.metrics}
+          loading={metrics.loading}
+          onRefresh={metrics.refresh}
+        />
+      )}
 
-      {isAdmin(profile) && (
+      {canLoadExcel(profile) && (
         <section className="space-y-4 rounded-xl border-2 border-brand-500 bg-gradient-to-b from-brand-50/80 to-white p-5 shadow-md">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -238,7 +244,7 @@ export default function Dashboard() {
         orden={modalOrden}
         onClose={() => setModalOrden(null)}
         onSaved={() => {
-          metrics.refresh();
+          if (canViewGlobalMetrics(profile)) metrics.refresh();
         }}
       />
     </div>

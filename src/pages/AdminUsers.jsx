@@ -86,14 +86,6 @@ export default function AdminUsers({ embedded = false }) {
       setErr('La contraseña debe tener al menos 6 caracteres.');
       return;
     }
-    if (
-      (role === ROLES.SUPERVISOR || role === ROLES.ASESOR) &&
-      !contratista
-    ) {
-      setErr('Indique contratista para supervisor o asesor.');
-      return;
-    }
-
     setCreating(true);
     try {
       await createUserWithAuth({
@@ -209,7 +201,7 @@ export default function AdminUsers({ embedded = false }) {
           </div>
           <div className="sm:col-span-2 lg:col-span-2">
             <label className="block text-xs font-medium text-slate-600">
-              Contratista (obligatorio para supervisor y asesor)
+              Contratista (opcional; referencia en perfil, no limita el acceso a SOTs)
             </label>
             <input
               value={createForm.contratista}

@@ -37,17 +37,9 @@ service cloud.firestore {
       return r == 'asesor' || r == 'Asesor';
     }
 
-    function sameContractor(c) {
-      return hasUserDoc() && userData().contratista == c;
-    }
-
-    function canReadOrden(data) {
-      return isAdmin() ||
-        (
-          hasUserDoc() &&
-          (isSupervisor() || isAsesor()) &&
-          sameContractor(data.contratista)
-        );
+    /** Usuario con perfil y rol operativo (lectura de todas las SOT). */
+    function canReadAllSots() {
+      return hasUserDoc() && (isAdmin() || isSupervisor() || isAsesor());
     }
 
     match /users/{uid} {
@@ -63,23 +55,9 @@ service cloud.firestore {
     }
 
     match /sots/{id} {
-      allow read: if signedIn() && canReadOrden(resource.data);
+      allow read: if signedIn() && canReadAllSots();
       allow create: if isAdmin();
-      allow update: if isAdmin() ||
-        (
-          isSupervisor() &&
-          sameContractor(resource.data.contratista)
-        ) ||
-        (
-          isAsesor() &&
-          sameContractor(resource.data.contratista) &&
-          (
-            !('gestion' in resource.data) ||
-            resource.data.gestion == null ||
-            !('usuarioId' in resource.data.gestion) ||
-            resource.data.gestion.usuarioId == request.auth.uid
-          )
-        );
+      allow update: if isAdmin() || isSupervisor() || isAsesor();
       allow delete: if false;
     }
   }

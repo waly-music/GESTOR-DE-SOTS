@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { TIPOS_GESTION, RANGOS_HORARIO } from '../constants/gestion';
 import { saveGestion } from '../services/ordenesService';
 import { formatDateOnly, formatTs } from '../utils/gestionColors';
-import { normalizeRole } from '../utils/roles';
 
 /**
  * @param {{
@@ -20,8 +19,6 @@ export function GestionModal({ open, onClose, orden, onSaved }) {
   const [rango, setRango] = useState('');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState(null);
-
-  const canEditOthers = normalizeRole(profile?.role) !== 'asesor';
 
   useEffect(() => {
     if (!orden) return;
@@ -40,14 +37,6 @@ export function GestionModal({ open, onClose, orden, onSaved }) {
   const needsFecha = tipo === 'CONFIRMADO_FUTURO';
   const needsRango =
     tipo === 'CONFIRMADO_FUTURO' || tipo === 'CONFIRMADO_HOY';
-
-  const bloqueadoAsesor = useMemo(() => {
-    if (!orden || normalizeRole(profile?.role) !== 'asesor') return false;
-    const g = orden.gestion;
-    return Boolean(
-      g?.tipoGestion && g?.usuarioId && g.usuarioId !== user?.uid,
-    );
-  }, [orden, profile?.role, user?.uid]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -85,8 +74,6 @@ export function GestionModal({ open, onClose, orden, onSaved }) {
           email: user.email,
           displayName: profile?.displayName ?? user.displayName ?? '',
         },
-        { role: profile.role },
-        canEditOthers,
       );
       onSaved?.();
       onClose();
@@ -121,12 +108,6 @@ export function GestionModal({ open, onClose, orden, onSaved }) {
           </button>
         </div>
 
-        {bloqueadoAsesor && (
-          <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            Esta gestión fue registrada por otro usuario. No puede editarla.
-          </p>
-        )}
-
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700">
@@ -135,7 +116,6 @@ export function GestionModal({ open, onClose, orden, onSaved }) {
             <select
               required
               value={tipo}
-              disabled={bloqueadoAsesor}
               onChange={(e) => setTipo(e.target.value)}
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
             >
@@ -157,7 +137,6 @@ export function GestionModal({ open, onClose, orden, onSaved }) {
                 type="date"
                 value={fecha}
                 onChange={(e) => setFecha(e.target.value)}
-                disabled={bloqueadoAsesor}
                 className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               />
             </div>
@@ -171,7 +150,6 @@ export function GestionModal({ open, onClose, orden, onSaved }) {
               <select
                 required={needsRango}
                 value={rango}
-                disabled={bloqueadoAsesor}
                 onChange={(e) => setRango(e.target.value)}
                 className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               >
@@ -197,7 +175,7 @@ export function GestionModal({ open, onClose, orden, onSaved }) {
             </button>
             <button
               type="submit"
-              disabled={saving || bloqueadoAsesor}
+              disabled={saving}
               className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
             >
               {saving ? 'Guardando…' : 'Guardar'}

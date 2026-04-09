@@ -5,6 +5,18 @@ import { formatDateOnly } from '../utils/gestionColors';
 const labelTipo = (v) =>
   TIPOS_GESTION.find((t) => t.value === v)?.label ?? v ?? '—';
 
+function labelGestionadoPor(o) {
+  const gp = o.gestionadoPor;
+  if (gp?.nombre || gp?.email) {
+    return [gp.nombre, gp.email].filter(Boolean).join(' · ') || '—';
+  }
+  const g = o.gestion;
+  if (g?.usuarioNombre || g?.usuarioEmail) {
+    return [g.usuarioNombre, g.usuarioEmail].filter(Boolean).join(' · ') || '—';
+  }
+  return '—';
+}
+
 export function OrdersTable({
   rows,
   loading,
@@ -43,6 +55,7 @@ export function OrdersTable({
               <th className="px-3 py-3">Distrito</th>
               <th className="px-3 py-3">Contratista</th>
               <th className="px-3 py-3">Gestión</th>
+              <th className="px-3 py-3">Gestionado por</th>
               <th className="px-3 py-3">Detalle</th>
               <th className="px-3 py-3 w-36" />
             </tr>
@@ -50,14 +63,14 @@ export function OrdersTable({
           <tbody className="divide-y divide-slate-100">
             {loading && !rows.length ? (
               <tr>
-                <td colSpan={8} className="px-3 py-8 text-center text-slate-500">
+                <td colSpan={9} className="px-3 py-8 text-center text-slate-500">
                   Cargando…
                 </td>
               </tr>
             ) : null}
             {!loading && !rows.length ? (
               <tr>
-                <td colSpan={8} className="px-3 py-8 text-center text-slate-500">
+                <td colSpan={9} className="px-3 py-8 text-center text-slate-500">
                   No hay resultados para los filtros actuales.
                 </td>
               </tr>
@@ -78,6 +91,9 @@ export function OrdersTable({
                   <td className="px-3 py-2 text-slate-700">{o.contratista}</td>
                   <td className="px-3 py-2 text-slate-800">
                     {labelTipo(tipo)}
+                  </td>
+                  <td className="max-w-[14rem] px-3 py-2 text-xs text-slate-700">
+                    {labelGestionadoPor(o)}
                   </td>
                   <td className="px-3 py-2 text-xs text-slate-600">
                     {tipo === 'CONFIRMADO_FUTURO' || tipo === 'CONFIRMADO_HOY' ? (

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getDashboardMetrics } from '../services/ordenesService';
+import { canViewGlobalMetrics } from '../utils/roles';
 
 export function useDashboardMetrics(profile) {
   const [metrics, setMetrics] = useState(null);
@@ -7,7 +8,7 @@ export function useDashboardMetrics(profile) {
   const [error, setError] = useState(null);
 
   const refresh = useCallback(async () => {
-    if (!profile?.role) {
+    if (!profile?.role || !canViewGlobalMetrics(profile)) {
       setMetrics(null);
       setLoading(false);
       return;

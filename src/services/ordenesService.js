@@ -19,7 +19,6 @@ import { db } from './firebase';
 import { mergeFiltrosFromExcelRows } from './filtrosService';
 import { chunkArray } from '../utils/chunk';
 import { mapExcelGestionToTipo } from '../utils/excelGestionMap';
-import { isAdmin, normalizeRole } from '../utils/roles';
 import { normalizeSotDisplay, sotToDocId } from '../utils/sotId';
 
 /** Colección principal de órdenes SOT en Firestore. */
@@ -62,16 +61,6 @@ function excelImportGestionFields(gestionRaw) {
 export async function countQuery(q) {
   const agg = await getCountFromServer(q);
   return agg.data().count;
-}
-
-/**
- * @param {{ role: string, contratista: string|null }} profile
- */
-function contractorFilter(profile) {
-  if (isAdmin(profile)) return null;
-  const c = profile.contratista?.trim();
-  if (!c) return '__NONE__';
-  return c;
 }
 
 /**
@@ -207,7 +196,7 @@ export async function importExcelRows(rows, onProgress) {
 }
 
 /**
- * @param {{ role: string, contratista: string|null }} profile
+ * @param {unknown} _profile reservado (sin filtro por perfil; el contratista del Excel es solo dato)
  * @param {{
  *   region?: string,
  *   departamento?: string,
@@ -216,14 +205,9 @@ export async function importExcelRows(rows, onProgress) {
  *   searchSot?: string,
  * }} filters
  */
-export function buildOrdenesQuery(profile, filters, pageSize = 25, cursor = null) {
+export function buildOrdenesQuery(_profile, filters, pageSize = 25, cursor = null) {
+  void _profile;
   const constraints = [];
-  const cf = contractorFilter(profile);
-  if (cf && cf !== '__NONE__') {
-    constraints.push(where('contratista', '==', cf));
-  } else if (cf === '__NONE__') {
-    constraints.push(where('contratista', '==', '__IMPOSSIBLE__'));
-  }
 
   if (filters.region) {
     constraints.push(where('region', '==', filters.region));
@@ -234,7 +218,7 @@ export function buildOrdenesQuery(profile, filters, pageSize = 25, cursor = null
   if (filters.distrito) {
     constraints.push(where('distrito', '==', filters.distrito));
   }
-  if (filters.contratista && isAdmin(profile)) {
+  if (filters.contratista) {
     constraints.push(where('contratista', '==', filters.contratista));
   }
 
@@ -267,47 +251,28 @@ export function subscribeQuery(q, onNext, onError) {
 }
 
 /**
- * @param {{ role: string, contratista: string|null }} profile
+ * @param {unknown} _profile reservado (métricas globales para admin/supervisor)
  */
-export async function getDashboardMetrics(profile) {
+export async function getDashboardMetrics(_profile) {
+  void _profile;
   const base = collection(db, COL);
-  const cf = contractorFilter(profile);
 
-  const contractorWhere =
-    cf && cf !== '__NONE__'
-      ? [where('contratista', '==', cf)]
-      : cf === '__NONE__'
-        ? [where('contratista', '==', '__IMPOSSIBLE__')]
-        : [];
-
-  const total = await countQuery(query(base, ...contractorWhere));
+  const total = await countQuery(query(base));
 
   const gestionadas = await countQuery(
-    query(base, ...contractorWhere, where('tieneGestion', '==', true)),
+    query(base, where('tieneGestion', '==', true)),
   );
 
   const confirmadoHoy = await countQuery(
-    query(
-      base,
-      ...contractorWhere,
-      where('gestionTipo', '==', 'CONFIRMADO_HOY'),
-    ),
+    query(base, where('gestionTipo', '==', 'CONFIRMADO_HOY')),
   );
 
   const confirmadoFuturo = await countQuery(
-    query(
-      base,
-      ...contractorWhere,
-      where('gestionTipo', '==', 'CONFIRMADO_FUTURO'),
-    ),
+    query(base, where('gestionTipo', '==', 'CONFIRMADO_FUTURO')),
   );
 
   const rechazos = await countQuery(
-    query(
-      base,
-      ...contractorWhere,
-      where('gestionTipo', '==', 'RECHAZO'),
-    ),
+    query(base, where('gestionTipo', '==', 'RECHAZO')),
   );
 
   return {
@@ -327,16 +292,8 @@ export async function getDashboardMetrics(profile) {
  *   rangoHorario?: string | null,
  * }} gestion
  * @param {{ uid: string, email: string|null, displayName?: string }} actor
- * @param {{ role: string }} profile
- * @param {boolean} [forceEdit] admin/supervisor override
  */
-export async function saveGestion(
-  ordenId,
-  gestion,
-  actor,
-  profile,
-  forceEdit = false,
-) {
+export async function saveGestion(ordenId, gestion, actor) {
   const ref = doc(db, COL, ordenId);
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
@@ -345,16 +302,6 @@ export async function saveGestion(
     }
     const data = snap.data();
     const prevGestion = data.gestion ?? null;
-
-    if (
-      !forceEdit &&
-      normalizeRole(profile.role) === 'asesor' &&
-      prevGestion?.tipoGestion &&
-      prevGestion.usuarioId &&
-      prevGestion.usuarioId !== actor.uid
-    ) {
-      throw new Error('No puede editar la gestión de otro usuario.');
-    }
 
     const logEntry = {
       action: prevGestion?.tipoGestion ? 'UPDATE_GESTION' : 'CREATE_GESTION',
@@ -392,10 +339,21 @@ export async function saveGestion(
       timestamp: serverTimestamp(),
     };
 
+    const nombre =
+      (actor.displayName && String(actor.displayName).trim()) ||
+      (actor.email ? String(actor.email).split('@')[0] : '') ||
+      '';
+
     tx.update(ref, {
       gestion: newGestion,
       tieneGestion: true,
       gestionTipo: gestion.tipoGestion,
+      gestionadoPor: {
+        nombre,
+        email: actor.email ?? '',
+        uid: actor.uid,
+        actualizadoEn: serverTimestamp(),
+      },
       historial,
       updatedAt: serverTimestamp(),
     });
