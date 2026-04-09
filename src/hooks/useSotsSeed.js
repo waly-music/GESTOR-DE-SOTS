@@ -70,6 +70,7 @@ export function useSotsSeed(profile, enabled = true) {
         // cache opcional
       }
     } catch (e) {
+      console.error('[useSotsSeed] Firestore query failed', e);
       setError(e.message ?? String(e));
     } finally {
       setLoading(false);

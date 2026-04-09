@@ -103,12 +103,7 @@ export function OrdersTable({
                   </td>
                   <td className="px-3 py-2 text-xs text-slate-600">
                     {tipo === 'CONFIRMADO_FUTURO' || tipo === 'CONFIRMADO_HOY' ? (
-                      <span>
-                        {formatDateOnly(o.gestion?.fecha)}{' '}
-                        {o.gestion?.rangoHorario
-                          ? `· ${o.gestion.rangoHorario}`
-                          : ''}
-                      </span>
+                      <span>{formatDetalle(o.gestion?.fecha, o.gestion?.rangoHorario)}</span>
                     ) : (
                       <span className="text-slate-400">—</span>
                     )}
@@ -155,6 +150,12 @@ export function OrdersTable({
       )}
     </div>
   );
+}
+
+function formatDetalle(fecha, rangoHorario) {
+  const dateText = formatDateOnly(fecha);
+  if (dateText === '—') return '—';
+  return rangoHorario ? `${dateText} · ${rangoHorario}` : dateText;
 }
 
 function ObservacionCell({ value, onSave, disabled, saving }) {

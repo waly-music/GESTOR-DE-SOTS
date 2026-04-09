@@ -594,7 +594,8 @@ export default function Dashboard() {
             gestion: {
               ...(prev.gestion ?? {}),
               tipoGestion: gestion.tipoGestion,
-              fecha: gestion.fecha ?? null,
+              // Evita mostrar fecha optimista hasta confirmar guardado.
+              fecha: null,
               rangoHorario: gestion.rangoHorario ?? null,
               usuarioId: actor.uid,
               usuarioEmail: actor.email ?? '',
@@ -615,6 +616,17 @@ export default function Dashboard() {
           try {
             await scheduleDebouncedPersist(`gestion:${ordenId}`, async () => {
               await saveGestion(ordenId, gestion, actor);
+            });
+            patchRowLocal(ordenId, {
+              gestion: {
+                ...(prev.gestion ?? {}),
+                tipoGestion: gestion.tipoGestion,
+                fecha: gestion.fecha ?? null,
+                rangoHorario: gestion.rangoHorario ?? null,
+                usuarioId: actor.uid,
+                usuarioEmail: actor.email ?? '',
+                usuarioNombre: actor.displayName ?? '',
+              },
             });
             setActionMsg({ type: 'ok', text: 'Gestión actualizada.' });
           } catch (err) {

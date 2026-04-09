@@ -4,6 +4,16 @@
       "collectionGroup": "sots",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "region", "order": "ASCENDING" },
+        { "fieldPath": "departamento", "order": "ASCENDING" },
+        { "fieldPath": "distrito", "order": "ASCENDING" },
+        { "fieldPath": "contratista", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "sots",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "contratista", "order": "ASCENDING" },
         { "fieldPath": "sot", "order": "ASCENDING" }
       ]

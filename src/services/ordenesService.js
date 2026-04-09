@@ -277,7 +277,8 @@ export function buildOrdenesQuery(profile, filters, pageSize = 25, cursor = null
     constraints.push(where('sot', '>=', sotSearch));
     constraints.push(where('sot', '<=', end));
     constraints.push(orderBy('sot'));
-  } else {
+  } else if (cursor) {
+    // Solo ordenar cuando hay paginación/cursor para evitar índices compuestos innecesarios.
     constraints.push(orderBy('sot'));
   }
 
