@@ -1,3 +1,4 @@
+import { AdminDeleteAllSots } from '../components/AdminDeleteAllSots';
 import { ExcelUpload } from '../components/ExcelUpload';
 import { SotBulkManagement } from '../components/SotBulkManagement';
 import { useAuth } from '../context/AuthContext';
@@ -25,6 +26,8 @@ export default function Administration() {
       </section>
 
       <SotBulkManagement />
+
+      {admin ? <AdminDeleteAllSots /> : null}
 
       {admin && (
         <section className="border-t border-slate-200 pt-8">

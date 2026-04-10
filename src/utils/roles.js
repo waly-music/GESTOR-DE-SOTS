@@ -101,6 +101,11 @@ export function canBulkManageSots(profile) {
   return isAdmin(profile) || isSupervisor(profile);
 }
 
+/** Borrar toda la colección `sots` (solo administrador; UI + servicio). */
+export function canDeleteAllSotsDatabase(profile) {
+  return isAdmin(profile);
+}
+
 /** Perfil con acceso a todos los contratistas (`users.contratista === __TODOS__`). */
 export function userSeesAllContractors(profile) {
   return String(profile?.contratista ?? '').trim() === CONTRATISTA_TODOS;

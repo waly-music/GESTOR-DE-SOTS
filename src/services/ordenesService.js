@@ -25,7 +25,7 @@ import { mapExcelGestionToTipo } from '../utils/excelGestionMap';
 import { normalizeSotDisplay, sotToDocId } from '../utils/sotId';
 import { CONTRATISTA_TODOS } from '../constants/gestion';
 import { buildAgendaFieldsFromExcelRow } from '../utils/excelAgendaFields';
-import { profileRol } from '../utils/roles';
+import { isAdmin, profileRol } from '../utils/roles';
 
 /** Colección principal de órdenes SOT en Firestore. */
 const COL = 'sots';
@@ -475,6 +475,12 @@ function assertCanBulkManageSots(profile) {
   }
 }
 
+function assertAdminOnly(profile) {
+  if (!isAdmin(profile)) {
+    throw new Error('Solo el administrador puede ejecutar esta acción.');
+  }
+}
+
 /**
  * Filtro por `gestionTipo` (campo denormalizado; coincide con gestión en app).
  * Supervisor: solo su contratista. Admin: todos los SOT.
@@ -590,6 +596,52 @@ export async function clearGestionByTipo(profile, tipoGestion, onProgress) {
     }
   }
   return { updated: totalUpdated };
+}
+
+/**
+ * Cuenta todos los documentos en `sots` (solo administrador).
+ * @param {{ rol?: string, contratista?: string|null } | null | undefined} profile
+ */
+export async function countAllSotsForAdmin(profile) {
+  assertAdminOnly(profile);
+  const q = query(collection(db, COL));
+  const agg = await getCountFromServer(q);
+  return agg.data().count;
+}
+
+/**
+ * Elimina todos los documentos de `sots` en páginas (solo administrador).
+ * Las reglas Firestore permiten borrar a admin cualquier documento.
+ *
+ * @param {{ rol?: string, contratista?: string|null } | null | undefined} profile
+ * @param {(deletedSoFar: number) => void} [onProgress]
+ */
+export async function deleteAllSotsForAdmin(profile, onProgress) {
+  assertAdminOnly(profile);
+  let lastDoc = null;
+  let totalDeleted = 0;
+  while (true) {
+    const page = [orderBy(documentId()), limit(BULK_PAGE)];
+    if (lastDoc) {
+      page.push(startAfter(lastDoc));
+    }
+    const snap = await getDocs(query(collection(db, COL), ...page));
+    if (snap.empty) {
+      break;
+    }
+    const batch = writeBatch(db);
+    for (const d of snap.docs) {
+      batch.delete(d.ref);
+    }
+    await batch.commit();
+    totalDeleted += snap.docs.length;
+    onProgress?.(totalDeleted);
+    lastDoc = snap.docs[snap.docs.length - 1];
+    if (snap.docs.length < BULK_PAGE) {
+      break;
+    }
+  }
+  return { deleted: totalDeleted };
 }
 
 export async function fetchAllOrdenesForExport(profile, filters, maxRows = 5000) {

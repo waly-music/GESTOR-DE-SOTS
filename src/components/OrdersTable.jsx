@@ -1,3 +1,4 @@
+import { formatFechaProgSgaForRow } from '../utils/fechaProgramacionDisplay';
 import { formatDateOnly, rowClassForGestion } from '../utils/gestionColors';
 import { AgendaStatusBadge } from './AgendaStatusBadge';
 import { DilacionBadge } from './DilacionBadge';
@@ -104,7 +105,7 @@ export function OrdersTable({
                   <td className="px-3 py-2 text-slate-700">{o.distrito}</td>
                   <td className="px-3 py-2 text-slate-700">{o.contratista}</td>
                   <td className="whitespace-nowrap px-3 py-2 text-xs text-slate-600">
-                    {formatDateOnly(o.fecha_programacion_sga)}
+                    {formatFechaProgSgaForRow(o)}
                   </td>
                   <td className="max-w-[11rem] px-3 py-2 align-top">
                     <AgendaStatusBadge status={o.status_agenda} />

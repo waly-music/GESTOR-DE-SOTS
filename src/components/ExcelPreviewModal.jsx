@@ -1,4 +1,5 @@
 import { buildAgendaFieldsFromExcelRow } from '../utils/excelAgendaFields';
+import { formatFechaProgSgaFromExcelRaw } from '../utils/fechaProgramacionDisplay';
 
 /**
  * Vista previa de filas Excel antes de confirmar la carga en Firestore.
@@ -59,10 +60,11 @@ export function ExcelPreviewModal({
                     <td className="px-3 py-1.5">{r.departamento}</td>
                     <td className="px-3 py-1.5">{r.distrito}</td>
                     <td className="px-3 py-1.5">{r.contratista}</td>
-                    <td className="max-w-[7rem] truncate px-3 py-1.5 text-slate-600" title={String(r.fechaProgramacionSgaRaw ?? '')}>
-                      {r.fechaProgramacionSgaRaw != null && r.fechaProgramacionSgaRaw !== ''
-                        ? String(r.fechaProgramacionSgaRaw)
-                        : '—'}
+                    <td
+                      className="max-w-[7rem] truncate px-3 py-1.5 text-slate-600"
+                      title={formatFechaProgSgaFromExcelRaw(r.fechaProgramacionSgaRaw)}
+                    >
+                      {formatFechaProgSgaFromExcelRaw(r.fechaProgramacionSgaRaw)}
                     </td>
                     <td className="px-3 py-1.5 text-slate-700">{agenda.status_agenda}</td>
                     <td className="max-w-[6rem] truncate px-3 py-1.5 text-slate-600" title={String(r.dilacionRaw ?? '')}>

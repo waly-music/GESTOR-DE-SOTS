@@ -1,5 +1,22 @@
 import { Timestamp } from 'firebase/firestore';
-import { formatYmdInPeru, getStatusAgenda } from './statusAgenda';
+import { fechaToYmdPeru, formatYmdInPeru, getStatusAgenda } from './statusAgenda';
+
+/**
+ * Texto como en Excel Perú (d/MMyyyy → ej. 6/04/2026), día calendario Lima.
+ * @param {import('firebase/firestore').Timestamp | null | undefined} ts
+ * @returns {string|null}
+ */
+export function formatPeExcelFromTs(ts) {
+  if (!ts) {
+    return null;
+  }
+  const ymd = fechaToYmdPeru(ts);
+  if (!ymd) {
+    return null;
+  }
+  const [y, m, d] = ymd.split('-');
+  return `${Number(d)}/${m}/${y}`;
+}
 
 /**
  * Convierte celda Excel a Timestamp (medianoche hora Lima del día calendario).
@@ -103,6 +120,7 @@ export function parseDilacionRaw(raw) {
  * @param {{ fechaProgramacionSgaRaw?: unknown, dilacionRaw?: unknown }} row
  * @returns {{
  *   fecha_programacion_sga: import('firebase/firestore').Timestamp | null,
+ *   fecha_programacion_sga_text: string | null,
  *   status_agenda: string,
  *   dilacion: string | null,
  * }}
@@ -114,6 +132,7 @@ export function buildAgendaFieldsFromExcelRow(row) {
     : getStatusAgenda(null);
   return {
     fecha_programacion_sga: ts,
+    fecha_programacion_sga_text: formatPeExcelFromTs(ts),
     status_agenda,
     dilacion: parseDilacionRaw(row?.dilacionRaw),
   };

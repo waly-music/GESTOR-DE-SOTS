@@ -20,6 +20,7 @@ import { useAggregatedMetrics } from '../hooks/useAggregatedMetrics';
 import { saveGestion, updateOrdenObservacion } from '../services/ordenesService';
 import { getFiltrosOptions, getFiltrosSeedRows } from '../services/filtrosService';
 import { formatDateOnly } from '../utils/gestionColors';
+import { formatFechaProgSgaForRow } from '../utils/fechaProgramacionDisplay';
 import { matchesDilacionFilter, parseDilacionNumber } from '../utils/dilacionUi';
 import { sortOrdenesByAgendaPriority } from '../utils/ordenSort';
 import { STATUS_AGENDA } from '../utils/statusAgenda';
@@ -57,7 +58,7 @@ function gestionadoPorLabel(o) {
 
 function buildExportRows(list) {
   return list.map((o) => {
-    const fechaProg = formatDateOnly(o.fecha_programacion_sga);
+    const fechaProg = formatFechaProgSgaForRow(o);
     return {
       SOT: o.sot,
       REGION: o.region,
