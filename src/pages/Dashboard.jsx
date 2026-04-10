@@ -128,7 +128,8 @@ export default function Dashboard() {
     [profile],
   );
 
-  const roleNeedsStrictFilters = isAsesor(profile) || isSupervisor(profile);
+  /** Solo asesor: filtros obligatorios. Supervisor y admin comparten vista amplia (filtros opcionales). */
+  const roleNeedsStrictFilters = isAsesor(profile);
   const contractorContext =
     String(profile?.contratista ?? '').trim() ||
     String(filters.contratista ?? '').trim();
@@ -207,7 +208,7 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (!isAsesor(profile)) return;
+    if (!isAsesor(profile) && !isSupervisor(profile)) return;
     const own = String(profile?.contratista ?? '').trim();
     if (!own) return;
     setFilters((f) => (f.contratista ? f : { ...f, contratista: own }));
@@ -217,7 +218,10 @@ export default function Dashboard() {
     let alive = true;
     (async () => {
       const selected = String(filters.contratista ?? '').trim();
-      const own = isAsesor(profile) ? String(profile?.contratista ?? '').trim() : '';
+      const own =
+        isAsesor(profile) || isSupervisor(profile)
+          ? String(profile?.contratista ?? '').trim()
+          : '';
       const effectiveContractor = selected || own;
       try {
         const rows = await getFiltrosSeedRows(effectiveContractor || null);
@@ -581,7 +585,7 @@ export default function Dashboard() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">
-                {isAdmin(profile)
+                {isAdmin(profile) || isSupervisor(profile)
                   ? 'Administración — Excel y usuarios'
                   : 'Importación — Excel base'}
               </h2>
@@ -590,7 +594,9 @@ export default function Dashboard() {
               to="/admin"
               className="shrink-0 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-brand-700"
             >
-              {isAdmin(profile) ? 'Panel administración' : 'Importar / administrar'}
+              {isAdmin(profile) || isSupervisor(profile)
+                ? 'Panel administración'
+                : 'Importar / administrar'}
             </Link>
           </div>
           <ExcelUpload

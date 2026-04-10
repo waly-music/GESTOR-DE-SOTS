@@ -1,15 +1,16 @@
 import { ExcelUpload } from '../components/ExcelUpload';
 import { SotBulkManagement } from '../components/SotBulkManagement';
 import { useAuth } from '../context/AuthContext';
-import { isAdmin } from '../utils/roles';
+import { isAdmin, isSupervisor } from '../utils/roles';
 import AdminUsers from './AdminUsers';
 
 /**
- * Excel para admin y supervisor; usuarios del sistema solo para admin.
+ * Excel y mantenimiento: admin y supervisor (misma pantalla). Usuarios del sistema solo admin (reglas Firestore).
  */
 export default function Administration() {
   const { profile } = useAuth();
   const admin = isAdmin(profile);
+  const supervisor = isSupervisor(profile);
 
   return (
     <div className="space-y-10">
@@ -18,7 +19,9 @@ export default function Administration() {
         <p className="mt-1 text-slate-600">
           {admin
             ? 'Importe el Excel con la base de órdenes y gestione las cuentas de usuario (Authentication + Firestore).'
-            : 'Importe el Excel con la base de órdenes. La gestión de usuarios la realiza un administrador.'}
+            : supervisor
+              ? 'Importe el Excel con la base de órdenes y use el mantenimiento por tipo de gestión. Misma vista operativa que un administrador; la creación de cuentas de usuario la realiza un administrador.'
+              : 'Importe el Excel con la base de órdenes. La gestión de usuarios la realiza un administrador.'}
         </p>
       </div>
 
