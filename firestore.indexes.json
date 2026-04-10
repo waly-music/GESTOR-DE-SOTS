@@ -122,6 +122,23 @@
         { "fieldPath": "sot", "order": "ASCENDING" },
         { "fieldPath": "gestionTipo", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "sots",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "gestionTipo", "order": "ASCENDING" },
+        { "fieldPath": "sot", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "sots",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "contratista", "order": "ASCENDING" },
+        { "fieldPath": "gestionTipo", "order": "ASCENDING" },
+        { "fieldPath": "sot", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

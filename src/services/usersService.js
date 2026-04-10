@@ -8,6 +8,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { pickRoleFromUserDoc } from '../utils/roles';
+import { metricasDocIdForContractor } from '../utils/metricasDocId';
 
 const USERS = 'users';
 
@@ -28,7 +29,10 @@ export async function listUsers() {
 export async function updateUserFields(uid, patch) {
   const ref = doc(db, USERS, uid);
   const data = { updatedAt: serverTimestamp() };
-  if (patch.contratista !== undefined) data.contratista = patch.contratista;
+  if (patch.contratista !== undefined) {
+    data.contratista = patch.contratista;
+    data.metricasDocId = metricasDocIdForContractor(patch.contratista);
+  }
   if (patch.rol !== undefined) data.rol = patch.rol;
   await updateDoc(ref, data);
 }

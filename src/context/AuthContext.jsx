@@ -9,6 +9,8 @@ import {
 import { isAuthDisabled } from '../config/authMode';
 import { getDemoProfile, setDemoProfile } from '../services/demoProfile';
 import { subscribeAuth, getUserProfile } from '../services/authService';
+import { syncMyMetricasDocId } from '../services/profileSyncService';
+import { isAsesor, isSupervisor } from '../utils/roles';
 
 const AuthContext = createContext(null);
 
@@ -50,11 +52,24 @@ export function AuthProvider({ children }) {
       }
       setProfileError(null);
       try {
-        const pr = await getUserProfile(uid);
+        let pr = await getUserProfile(uid);
         if (pr === null) {
           setProfile(null);
           setProfileError('missing');
           return;
+        }
+        if (
+          pr.contratista &&
+          !pr.metricasDocId &&
+          (isAsesor(pr) || isSupervisor(pr))
+        ) {
+          try {
+            await syncMyMetricasDocId();
+            const again = await getUserProfile(uid);
+            if (again) pr = again;
+          } catch (e) {
+            console.warn('[AuthContext] syncMyMetricasDocId', e?.message ?? e);
+          }
         }
         setProfile(pr);
         setProfileError(null);

@@ -16,10 +16,15 @@ import { MetricCards } from '../components/MetricCards';
 import { OrdersTable } from '../components/OrdersTable';
 import { DashboardCharts } from '../components/DashboardCharts';
 import { useSotsSeed } from '../hooks/useSotsSeed';
+import { useAggregatedMetrics } from '../hooks/useAggregatedMetrics';
 import { saveGestion, updateOrdenObservacion } from '../services/ordenesService';
 import { getFiltrosOptions, getFiltrosSeedRows } from '../services/filtrosService';
 
 const STORAGE_FILTERS_KEY = 'sot_dashboard_filters_v2';
+
+/** Máx. filas cargadas para la tabla (consulta paginada). No es el total de la base. */
+const SOTS_SEED_LIMIT_STRICT = 500;
+const SOTS_SEED_LIMIT_ADMIN = 500;
 
 function fechaCitaIso(o) {
   const f = o.gestion?.fecha;
@@ -152,14 +157,21 @@ export default function Dashboard() {
     (isAsesor(profile) || isSupervisor(profile)) &&
     !String(profile?.contratista ?? '').trim();
 
+  const showGlobalMetricCards =
+    canViewGlobalMetrics(profile) && !missingRequiredFilters;
+
+  const aggregated = useAggregatedMetrics(profileForQuery, showGlobalMetricCards);
+
   const metricsDataHint = useMemo(() => {
     if (!canViewGlobalMetrics(profile)) return null;
-    const maxRows = roleNeedsStrictFilters ? 500 : 200;
+    const maxRows = roleNeedsStrictFilters
+      ? SOTS_SEED_LIMIT_STRICT
+      : SOTS_SEED_LIMIT_ADMIN;
     const hasServerFilters = Object.keys(strictQueryFilters).length > 0;
-    return `Los totales se calculan sobre la tabla (hasta ${maxRows} órdenes cargadas, orden por SOT). ${
+    return `Totales de tarjetas: documento agregado en Firestore (colección «metricas», 1 lectura). Tabla y gráficos: hasta ${maxRows} filas cargadas por rendimiento${
       hasServerFilters
-        ? 'La consulta a Firestore incluye los filtros seleccionados.'
-        : 'Sin filtros de ubicación o contratista, la muestra no representa el total de la base.'
+        ? '; la consulta incluye los filtros seleccionados.'
+        : '. Si necesita ver más filas en tabla, exporte con filtros o suba el límite en código.'
     }`;
   }, [profile, roleNeedsStrictFilters, strictQueryFilters]);
 
@@ -167,7 +179,7 @@ export default function Dashboard() {
     profileForQuery,
     !missingRequiredFilters,
     strictQueryFilters,
-    roleNeedsStrictFilters ? 500 : 200,
+    roleNeedsStrictFilters ? SOTS_SEED_LIMIT_STRICT : SOTS_SEED_LIMIT_ADMIN,
   );
 
   useEffect(() => {
@@ -349,6 +361,25 @@ export default function Dashboard() {
     ).length;
     return { total, gestionadas, confirmadoHoy, confirmadoFuturo, rechazos };
   }, [rowsFiltered]);
+
+  /** Tarjetas: totales reales desde `metricas/*`; si falla la agregación, se usa el conteo local de la muestra. */
+  const metricsForCards = useMemo(() => {
+    if (!showGlobalMetricCards) return localMetrics;
+    if (aggregated.metrics != null) return aggregated.metrics;
+    if (aggregated.error) return localMetrics;
+    return null;
+  }, [
+    showGlobalMetricCards,
+    localMetrics,
+    aggregated.metrics,
+    aggregated.error,
+  ]);
+
+  const metricsCardsLoading =
+    showGlobalMetricCards &&
+    aggregated.loading &&
+    aggregated.metrics == null &&
+    !aggregated.error;
 
   const activeFilterChips = useMemo(() => {
     const chips = [];
@@ -535,14 +566,20 @@ export default function Dashboard() {
 
       {canViewGlobalMetrics(profile) && (
         <MetricCards
-          metrics={localMetrics}
-          loading={seed.loading}
-          onRefresh={seed.reload}
+          metrics={metricsForCards}
+          loading={metricsCardsLoading}
+          onRefresh={() => {
+            aggregated.refresh();
+            seed.reload();
+          }}
           dataHint={metricsDataHint}
         />
       )}
       {canViewGlobalMetrics(profile) && (
-        <DashboardCharts rows={rowsFiltered} metrics={localMetrics} />
+        <DashboardCharts
+          rows={rowsFiltered}
+          metrics={aggregated.metrics ?? localMetrics}
+        />
       )}
 
       {canLoadExcel(profile) && (
@@ -586,6 +623,7 @@ export default function Dashboard() {
           <ExcelUpload
             onDone={() => {
               seed.reload();
+              aggregated.refresh();
             }}
           />
         </section>
@@ -648,6 +686,25 @@ export default function Dashboard() {
         }}
         onGestionar={(o) => setModalOrden(o)}
       />
+
+      {!missingRequiredFilters && seed.hasMore ? (
+        <div className="flex flex-wrap items-center justify-center gap-2 py-2">
+          <button
+            type="button"
+            disabled={seed.loadingMore || seed.loading}
+            onClick={() => seed.loadMore()}
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-800 hover:bg-slate-50 disabled:opacity-50"
+          >
+            {seed.loadingMore
+              ? 'Cargando más filas…'
+              : `Cargar más filas (siguientes ${roleNeedsStrictFilters ? SOTS_SEED_LIMIT_STRICT : SOTS_SEED_LIMIT_ADMIN} por orden SOT)`}
+          </button>
+          <span className="text-xs text-slate-500">
+            La tabla carga por páginas para ahorrar lecturas; las tarjetas superiores usan totales
+            agregados en Firestore.
+          </span>
+        </div>
+      ) : null}
 
       {actionMsg && (
         <div

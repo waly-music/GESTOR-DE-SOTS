@@ -1,4 +1,10 @@
 rules_version = '2';
+// Reglas reforzadas: lectura/escritura de `sots` acotada por contratista del perfil
+// (users/{uid}). Los administradores conservan acceso global.
+// Creación de `users/{uid}` solo con rol inicial "asesor" y campos permitidos.
+// `metricas/{docId}`: admin lee global y agregados; asesor/supervisor solo su doc
+// (`metricasDocId` en el perfil, mantenido por Cloud Function y cliente al cambiar contratista).
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -15,7 +21,12 @@ service cloud.firestore {
     }
 
     function hasUserDoc() {
-      return exists(userPath());
+      return signedIn() && exists(userPath());
+    }
+
+    // Comparación segura contratista null / string
+    function normStr(v) {
+      return v == null ? '' : v;
     }
 
     function roleIsAdmin(r) {
@@ -35,30 +46,94 @@ service cloud.firestore {
         r == 'asesora' || r == 'Asesora' || r == 'advisor' || r == 'Advisor';
     }
 
+    // Siempre exigen sesión + documento de perfil antes de leer roles
     function isAdmin() {
-      let d = userData();
       return signedIn() && hasUserDoc() && (
-        roleIsAdmin(d.rol) || roleIsAdmin(d.role) || roleIsAdmin(d.Role)
+        roleIsAdmin(userData().rol) || roleIsAdmin(userData().role) || roleIsAdmin(userData().Role)
       );
     }
 
     function isSupervisor() {
-      let d = userData();
-      return roleIsSupervisor(d.rol) || roleIsSupervisor(d.role) || roleIsSupervisor(d.Role);
+      return signedIn() && hasUserDoc() && (
+        roleIsSupervisor(userData().rol) || roleIsSupervisor(userData().role) || roleIsSupervisor(userData().Role)
+      );
     }
 
     function isAsesor() {
-      let d = userData();
-      return roleIsAsesor(d.rol) || roleIsAsesor(d.role) || roleIsAsesor(d.Role);
+      return signedIn() && hasUserDoc() && (
+        roleIsAsesor(userData().rol) || roleIsAsesor(userData().role) || roleIsAsesor(userData().Role)
+      );
     }
 
-    function canReadAllSots() {
-      return hasUserDoc() && (isAdmin() || isSupervisor() || isAsesor());
+    function canReadOperational() {
+      return isAdmin() || isSupervisor() || isAsesor();
+    }
+
+    function userOwnsContractorField(contractorField) {
+      return normStr(contractorField) == normStr(userData().contratista);
+    }
+
+    // Lectura de un documento sot: admin ve todo; resto solo su contratista
+    function canReadSotDoc() {
+      return isAdmin()
+        || ((isSupervisor() || isAsesor()) && userOwnsContractorField(resource.data.contratista));
+    }
+
+    // No permitir mover órdenes a otro contratista salvo admin
+    function contratistaUnchanged() {
+      return request.resource.data.contratista == resource.data.contratista;
+    }
+
+    // Quitar gestión (pasar de gestionada a pendiente) solo admin/supervisor.
+    function gestionClearAllowed() {
+      return !(resource.data.tieneGestion == true
+        && request.resource.data.tieneGestion == false)
+        || isAdmin()
+        || isSupervisor();
+    }
+
+    function canUpdateSotDoc() {
+      return gestionClearAllowed()
+        && (
+          isAdmin()
+          || (
+            isSupervisor()
+            && userOwnsContractorField(resource.data.contratista)
+            && contratistaUnchanged()
+          )
+          || (
+            isAsesor()
+            && userOwnsContractorField(resource.data.contratista)
+            && contratistaUnchanged()
+          )
+        );
+    }
+
+    function canDeleteSotDoc() {
+      return isAdmin()
+        || (
+          isSupervisor()
+          && userOwnsContractorField(resource.data.contratista)
+        );
+    }
+
+    function canCreateSotDoc() {
+      return isAdmin()
+        || (
+          isSupervisor()
+          && userOwnsContractorField(request.resource.data.contratista)
+        );
     }
 
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
-      allow create: if signedIn() && request.auth.uid == uid;
+      // Autoregistro: solo rol asesor; sin privilege escalation (p. ej. admin)
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.rol == 'asesor'
+        && request.resource.data.keys().hasOnly([
+          'email', 'displayName', 'rol', 'contratista', 'createdAt', 'updatedAt', 'photoURL'
+        ]);
       allow update: if isAdmin();
       allow delete: if false;
     }
@@ -69,20 +144,23 @@ service cloud.firestore {
     }
 
     match /metricas/{docId} {
-      allow read: if signedIn() && canReadAllSots();
+      allow read: if signedIn() && hasUserDoc() && (
+        isAdmin()
+        || ((isSupervisor() || isAsesor()) && docId == userData().metricasDocId)
+      );
       allow write: if false;
     }
 
     match /links/{id} {
-      allow read: if signedIn() && canReadAllSots();
+      allow read: if signedIn() && hasUserDoc() && canReadOperational();
       allow create, update, delete: if isAdmin() || isSupervisor();
     }
 
     match /sots/{id} {
-      allow read: if signedIn() && canReadAllSots();
-      allow create: if isAdmin() || isSupervisor();
-      allow update: if isAdmin() || isSupervisor() || isAsesor();
-      allow delete: if false;
+      allow read: if signedIn() && hasUserDoc() && canReadSotDoc();
+      allow create: if signedIn() && hasUserDoc() && canCreateSotDoc();
+      allow update: if signedIn() && hasUserDoc() && canUpdateSotDoc();
+      allow delete: if signedIn() && hasUserDoc() && canDeleteSotDoc();
     }
   }
 }

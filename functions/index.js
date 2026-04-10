@@ -122,6 +122,9 @@ exports.createUserWithProfile = onCall(
       );
     }
 
+    const contratistaFinal =
+      roleStr === 'admin' ? null : contratistaRaw || null;
+
     let userRecord;
     try {
       userRecord = await auth.createUser({
@@ -154,13 +157,63 @@ exports.createUserWithProfile = onCall(
         email: emailStr,
         displayName,
         rol: roleStr,
-        contratista:
-          roleStr === 'admin' ? null : contratistaRaw || null,
+        contratista: contratistaFinal,
+        metricasDocId: metricDocIdForContractor(contratistaFinal),
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
       });
 
     return { uid: userRecord.uid, email: emailStr };
+  },
+);
+
+/**
+ * Mantiene `metricasDocId` alineado con `contratista` (reglas de lectura de `metricas/*`).
+ */
+exports.syncUserMetricasDocId = onDocumentWritten(
+  {
+    document: 'users/{uid}',
+    region: 'us-central1',
+  },
+  async (event) => {
+    const afterSnap = event.data.after;
+    if (!afterSnap.exists) return;
+    const after = afterSnap.data();
+    const expected = metricDocIdForContractor(after.contratista);
+    const current = after.metricasDocId;
+    // Evitar bucles: null vs campo ausente
+    if (expected == current) return;
+    await afterSnap.ref.update({
+      metricasDocId: expected ? expected : FieldValue.delete(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  },
+);
+
+/**
+ * Repara perfiles antiguos sin `metricasDocId` (invocado desde el cliente tras login).
+ */
+exports.syncMyMetricasDocId = onCall(
+  {
+    region: 'us-central1',
+    cors: true,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Debe iniciar sesión.');
+    }
+    const ref = db.collection('users').doc(request.auth.uid);
+    const snap = await ref.get();
+    if (!snap.exists) {
+      throw new HttpsError('failed-precondition', 'Perfil no encontrado.');
+    }
+    const d = snap.data();
+    const expected = metricDocIdForContractor(d.contratista);
+    await ref.update({
+      metricasDocId: expected ? expected : FieldValue.delete(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    return { metricasDocId: expected || null };
   },
 );
 

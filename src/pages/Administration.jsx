@@ -1,4 +1,5 @@
 import { ExcelUpload } from '../components/ExcelUpload';
+import { SotBulkManagement } from '../components/SotBulkManagement';
 import { useAuth } from '../context/AuthContext';
 import { isAdmin } from '../utils/roles';
 import AdminUsers from './AdminUsers';
@@ -35,6 +36,8 @@ export default function Administration() {
         </p>
         <ExcelUpload onDone={() => {}} />
       </section>
+
+      <SotBulkManagement />
 
       {admin && (
         <section className="border-t border-slate-200 pt-8">

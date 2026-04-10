@@ -75,6 +75,7 @@ export async function getFiltrosOptions() {
 export async function getFiltrosSeedRows(contratista) {
   const c = String(contratista ?? '').trim();
   const base = collection(db, 'sots');
+  // Tope para poblar combos; cada llamada = hasta 1000 lecturas (opcional: bajar si el costo importa).
   const q = c
     ? query(base, where('contratista', '==', c), limit(1000))
     : query(base, limit(1000));

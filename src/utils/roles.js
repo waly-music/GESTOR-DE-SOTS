@@ -96,6 +96,11 @@ export function canViewGlobalMetrics(profile) {
   return isAdmin(profile) || isSupervisor(profile);
 }
 
+/** Eliminación / limpieza masiva por tipo de gestión (administración). */
+export function canBulkManageSots(profile) {
+  return isAdmin(profile) || isSupervisor(profile);
+}
+
 /**
  * @param {{ rol?: unknown, role?: unknown } | null | undefined} profile
  * @param {string[]} allowed e.g. [ROLES.ADMIN]

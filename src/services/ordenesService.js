@@ -1,10 +1,11 @@
 import {
   Timestamp,
   collection,
+  deleteField,
   doc,
   documentId,
-  getDoc,
   getCountFromServer,
+  getDoc,
   getDocs,
   limit,
   updateDoc,
@@ -55,14 +56,6 @@ function excelImportGestionFields(gestionRaw) {
     gestionTipo: null,
     gestionExcelRaw: raw || null,
   };
-}
-
-/**
- * @param {import('firebase/firestore').Query} q
- */
-export async function countQuery(q) {
-  const agg = await getCountFromServer(q);
-  return agg.data().count;
 }
 
 /**
@@ -314,55 +307,29 @@ export async function getDashboardMetrics(profile) {
   const rol = profileRol(profile);
   const contractor = String(profile?.contratista ?? '').trim();
 
-  // Métricas agregadas (1 lectura) para minimizar costo.
+  // Una sola lectura del documento agregado (Cloud Function syncSotMetrics).
   const metricDocId =
     rol === 'supervisor' && contractor
       ? `contratista_${contractor.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`
       : 'global';
   const metricRef = doc(db, 'metricas', metricDocId);
   const metricSnap = await getDoc(metricRef);
-  if (metricSnap.exists()) {
-    const m = metricSnap.data() ?? {};
+  if (!metricSnap.exists()) {
     return {
-      total: Number(m.total ?? 0),
-      gestionadas: Number(m.gestionadas ?? 0),
-      confirmadoHoy: Number(m.confirmadoHoy ?? 0),
-      confirmadoFuturo: Number(m.confirmadoFuturo ?? 0),
-      rechazos: Number(m.rechazos ?? 0),
+      total: 0,
+      gestionadas: 0,
+      confirmadoHoy: 0,
+      confirmadoFuturo: 0,
+      rechazos: 0,
     };
   }
-
-  // Fallback si aún no existe colección agregada.
-  const base = collection(db, COL);
-  const contractorWhere =
-    rol === 'supervisor' && contractor
-      ? [where('contratista', '==', contractor)]
-      : [];
-
-  const total = await countQuery(query(base, ...contractorWhere));
-
-  const gestionadas = await countQuery(
-    query(base, ...contractorWhere, where('tieneGestion', '==', true)),
-  );
-
-  const confirmadoHoy = await countQuery(
-    query(base, ...contractorWhere, where('gestionTipo', '==', 'CONFIRMADO_HOY')),
-  );
-
-  const confirmadoFuturo = await countQuery(
-    query(base, ...contractorWhere, where('gestionTipo', '==', 'CONFIRMADO_FUTURO')),
-  );
-
-  const rechazos = await countQuery(
-    query(base, ...contractorWhere, where('gestionTipo', '==', 'RECHAZO')),
-  );
-
+  const m = metricSnap.data() ?? {};
   return {
-    total,
-    gestionadas,
-    confirmadoHoy,
-    confirmadoFuturo,
-    rechazos,
+    total: Number(m.total ?? 0),
+    gestionadas: Number(m.gestionadas ?? 0),
+    confirmadoHoy: Number(m.confirmadoHoy ?? 0),
+    confirmadoFuturo: Number(m.confirmadoFuturo ?? 0),
+    rechazos: Number(m.rechazos ?? 0),
   };
 }
 
@@ -462,6 +429,134 @@ export async function updateOrdenObservacion(ordenId, observacion) {
  * @param {Parameters<typeof buildOrdenesQuery>[1]} filters
  * @param {number} [maxRows]
  */
+/**
+ * Solo admin/supervisor (misma regla que panel de administración).
+ * @param {{ rol?: string, contratista?: string|null } | null | undefined} profile
+ */
+function assertCanBulkManageSots(profile) {
+  const rol = profileRol(profile);
+  if (rol !== 'admin' && rol !== 'supervisor') {
+    throw new Error('No tiene permiso para esta acción.');
+  }
+}
+
+/**
+ * Filtro por `gestionTipo` (campo denormalizado; coincide con gestión en app).
+ * Supervisor: solo su contratista. Admin: todos los SOT.
+ * @param {{ rol?: string, contratista?: string|null } | null | undefined} profile
+ * @param {string} tipoGestion
+ * @returns {import('firebase/firestore').QueryConstraint[]}
+ */
+function bulkByGestionTipoConstraints(profile, tipoGestion) {
+  assertCanBulkManageSots(profile);
+  const rol = profileRol(profile);
+  const contractor = String(profile?.contratista ?? '').trim();
+  const tipo = String(tipoGestion ?? '').trim();
+  if (!tipo) {
+    throw new Error('Seleccione un tipo de gestión.');
+  }
+  if (rol === 'supervisor' && !contractor) {
+    throw new Error('Su perfil no tiene contratista asignado.');
+  }
+  /** @type {import('firebase/firestore').QueryConstraint[]} */
+  const c = [];
+  if (rol === 'supervisor') {
+    c.push(where('contratista', '==', contractor));
+  }
+  c.push(where('gestionTipo', '==', tipo));
+  c.push(orderBy('sot'));
+  return c;
+}
+
+/**
+ * Cuenta documentos con ese tipo (sin leer todos los campos; agregación Firestore).
+ * @param {{ rol?: string, contratista?: string|null } | null | undefined} profile
+ * @param {string} tipoGestion
+ */
+export async function countSotsByGestionTipo(profile, tipoGestion) {
+  const constraints = bulkByGestionTipoConstraints(profile, tipoGestion);
+  const q = query(collection(db, COL), ...constraints);
+  const agg = await getCountFromServer(q);
+  return agg.data().count;
+}
+
+const BULK_PAGE = 500;
+
+/**
+ * Elimina en bloques de hasta 500. Las reglas solo permiten admin/supervisor.
+ * `syncSotMetrics` actualiza métricas por cada borrado.
+ * @param {{ rol?: string, contratista?: string|null } | null | undefined} profile
+ * @param {string} tipoGestion
+ * @param {(deletedSoFar: number) => void} [onProgress]
+ */
+export async function deleteSotsByGestionTipo(profile, tipoGestion, onProgress) {
+  const base = bulkByGestionTipoConstraints(profile, tipoGestion);
+  let lastDoc = null;
+  let totalDeleted = 0;
+  while (true) {
+    const page = [...base, limit(BULK_PAGE)];
+    if (lastDoc) {
+      page.push(startAfter(lastDoc));
+    }
+    const snap = await getDocs(query(collection(db, COL), ...page));
+    if (snap.empty) {
+      break;
+    }
+    const batch = writeBatch(db);
+    for (const d of snap.docs) {
+      batch.delete(d.ref);
+    }
+    await batch.commit();
+    totalDeleted += snap.docs.length;
+    onProgress?.(totalDeleted);
+    lastDoc = snap.docs[snap.docs.length - 1];
+    if (snap.docs.length < BULK_PAGE) {
+      break;
+    }
+  }
+  return { deleted: totalDeleted };
+}
+
+/**
+ * Reinicia gestión sin borrar el documento. Solo admin/supervisor (reglas + gestionClearAllowed).
+ * @param {{ rol?: string, contratista?: string|null } | null | undefined} profile
+ * @param {string} tipoGestion
+ * @param {(updatedSoFar: number) => void} [onProgress]
+ */
+export async function clearGestionByTipo(profile, tipoGestion, onProgress) {
+  const base = bulkByGestionTipoConstraints(profile, tipoGestion);
+  let lastDoc = null;
+  let totalUpdated = 0;
+  while (true) {
+    const page = [...base, limit(BULK_PAGE)];
+    if (lastDoc) {
+      page.push(startAfter(lastDoc));
+    }
+    const snap = await getDocs(query(collection(db, COL), ...page));
+    if (snap.empty) {
+      break;
+    }
+    const batch = writeBatch(db);
+    for (const d of snap.docs) {
+      batch.update(d.ref, {
+        gestion: null,
+        tieneGestion: false,
+        gestionTipo: null,
+        gestionadoPor: deleteField(),
+        updatedAt: serverTimestamp(),
+      });
+    }
+    await batch.commit();
+    totalUpdated += snap.docs.length;
+    onProgress?.(totalUpdated);
+    lastDoc = snap.docs[snap.docs.length - 1];
+    if (snap.docs.length < BULK_PAGE) {
+      break;
+    }
+  }
+  return { updated: totalUpdated };
+}
+
 export async function fetchAllOrdenesForExport(profile, filters, maxRows = 5000) {
   const pageSize = 500;
   const all = [];
