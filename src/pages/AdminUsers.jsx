@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { isAuthDisabled } from '../config/authMode';
 import { listUsers, updateUserFields } from '../services/usersService';
 import { createUserWithAuth } from '../services/userAdminService';
-import { ROLES } from '../constants/gestion';
+import { CONTRATISTA_TODOS, ROLES } from '../constants/gestion';
 import { Spinner } from '../components/Spinner';
 
 const ROLE_OPTIONS = [
@@ -76,7 +76,10 @@ export default function AdminUsers({ embedded = false }) {
     const password = createForm.password;
     const displayName = createForm.displayName.trim();
     const rol = createForm.rol;
-    const contratista = createForm.contratista.trim();
+    const contratista =
+      createForm.contratista === CONTRATISTA_TODOS
+        ? CONTRATISTA_TODOS
+        : String(createForm.contratista ?? '').trim();
 
     if (!email || !password) {
       setErr('Indique correo y contraseña.');
@@ -86,6 +89,13 @@ export default function AdminUsers({ embedded = false }) {
       setErr('La contraseña debe tener al menos 6 caracteres.');
       return;
     }
+    if (
+      (rol === ROLES.SUPERVISOR || rol === ROLES.ASESOR) &&
+      !contratista
+    ) {
+      setErr('Elija un contratista o «Todos los contratistas».');
+      return;
+    }
     setCreating(true);
     try {
       await createUserWithAuth({
@@ -93,8 +103,7 @@ export default function AdminUsers({ embedded = false }) {
         password,
         displayName,
         rol,
-        contratista:
-          rol === ROLES.ADMIN ? null : contratista || null,
+        contratista: rol === ROLES.ADMIN ? null : contratista || null,
       });
       setOk(
         `Usuario creado en Authentication: ${email}. Ya puede iniciar sesión.`,
@@ -186,22 +195,54 @@ export default function AdminUsers({ embedded = false }) {
               ))}
             </select>
           </div>
-          <div>
+          <div className="md:col-span-2">
             <label className="block text-xs font-medium text-slate-600">
               Contratista
             </label>
-            <input
-              value={createForm.contratista}
-              onChange={(e) =>
-                setCreateForm((f) => ({
-                  ...f,
-                  contratista: e.target.value,
-                }))
-              }
-              disabled={createForm.rol === ROLES.ADMIN}
-              placeholder="Empresa / contratista"
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100"
-            />
+            {createForm.rol === ROLES.ADMIN ? (
+              <input
+                value=""
+                disabled
+                placeholder="No aplica (administrador)"
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100"
+              />
+            ) : (
+              <div className="mt-1 space-y-2">
+                <select
+                  value={
+                    createForm.contratista === CONTRATISTA_TODOS
+                      ? CONTRATISTA_TODOS
+                      : '_one_'
+                  }
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setCreateForm((f) => ({
+                      ...f,
+                      contratista: v === CONTRATISTA_TODOS ? CONTRATISTA_TODOS : '',
+                    }));
+                  }}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                >
+                  <option value="_one_">Un contratista (indicar nombre abajo)</option>
+                  <option value={CONTRATISTA_TODOS}>
+                    Todos los contratistas (vista global)
+                  </option>
+                </select>
+                {createForm.contratista !== CONTRATISTA_TODOS && (
+                  <input
+                    value={createForm.contratista}
+                    onChange={(e) =>
+                      setCreateForm((f) => ({
+                        ...f,
+                        contratista: e.target.value,
+                      }))
+                    }
+                    placeholder="Nombre exacto como en las órdenes"
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  />
+                )}
+              </div>
+            )}
           </div>
           <div className="md:col-span-2">
             <label className="block text-xs font-medium text-slate-600">
@@ -288,6 +329,7 @@ function Field({ label, value, onChange, type = 'text', ...rest }) {
 }
 
 function UserRow({ user: u, saving, onChange, onSave }) {
+  const isTodos = u.contratista === CONTRATISTA_TODOS;
   return (
     <tr>
       <td className="px-3 py-2 text-slate-800">{u.email}</td>
@@ -311,18 +353,49 @@ function UserRow({ user: u, saving, onChange, onSave }) {
         </select>
       </td>
       <td className="px-3 py-2">
-        <input
-          value={u.contratista ?? ''}
-          onChange={(e) =>
-            onChange((list) =>
-              list.map((x) =>
-                x.id === u.id ? { ...x, contratista: e.target.value } : x,
-              ),
-            )
-          }
-          placeholder="Nombre contratista"
-          className="w-full min-w-[10rem] rounded border border-slate-300 px-2 py-1 text-sm"
-        />
+        {u.rol === ROLES.ADMIN ? (
+          <span className="text-sm text-slate-400">—</span>
+        ) : (
+          <div className="flex min-w-[12rem] flex-col gap-1">
+            <select
+              value={isTodos ? CONTRATISTA_TODOS : '_one_'}
+              onChange={(e) => {
+                const v = e.target.value;
+                onChange((list) =>
+                  list.map((x) =>
+                    x.id === u.id
+                      ? {
+                          ...x,
+                          contratista:
+                            v === CONTRATISTA_TODOS ? CONTRATISTA_TODOS : '',
+                        }
+                      : x,
+                  ),
+                );
+              }}
+              className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
+            >
+              <option value="_one_">Un contratista</option>
+              <option value={CONTRATISTA_TODOS}>Todos los contratistas</option>
+            </select>
+            {!isTodos && (
+              <input
+                value={u.contratista ?? ''}
+                onChange={(e) =>
+                  onChange((list) =>
+                    list.map((x) =>
+                      x.id === u.id
+                        ? { ...x, contratista: e.target.value }
+                        : x,
+                    ),
+                  )
+                }
+                placeholder="Nombre exacto"
+                className="w-full rounded border border-slate-300 px-2 py-1 text-sm"
+              />
+            )}
+          </div>
+        )}
       </td>
       <td className="px-3 py-2 text-right">
         <button

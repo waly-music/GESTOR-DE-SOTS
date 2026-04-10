@@ -15,3 +15,9 @@ export const ROLES = {
   SUPERVISOR: 'supervisor',
   ASESOR: 'asesor',
 };
+
+/**
+ * Valor de `users.contratista` asignable solo por admin: el usuario ve y opera
+ * sobre todos los contratistas (misma amplitud que admin en datos).
+ */
+export const CONTRATISTA_TODOS = '__TODOS__';

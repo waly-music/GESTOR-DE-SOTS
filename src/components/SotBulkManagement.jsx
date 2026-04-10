@@ -6,7 +6,7 @@ import {
   countSotsByGestionTipo,
   deleteSotsByGestionTipo,
 } from '../services/ordenesService';
-import { canBulkManageSots } from '../utils/roles';
+import { canBulkManageSots, userSeesAllContractors } from '../utils/roles';
 import { Spinner } from './Spinner';
 
 /**
@@ -102,8 +102,10 @@ export function SotBulkManagement() {
       </h2>
       <p className="mt-1 text-sm text-slate-600">
         Solo afecta órdenes cuyo campo <code className="rounded bg-slate-100 px-1">gestionTipo</code>{' '}
-        coincide con el tipo elegido. El supervisor solo ve su contratista; el
-        administrador ve todos los SOT.
+        coincide con el tipo elegido.{' '}
+        {userSeesAllContractors(profile)
+          ? 'Su perfil tiene acceso a todos los contratistas: el alcance es global (como administrador).'
+          : 'El supervisor solo ve su contratista; el administrador ve todos los SOT.'}
       </p>
 
       <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">

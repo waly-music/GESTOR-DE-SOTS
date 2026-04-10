@@ -1,4 +1,4 @@
-import { ROLES } from '../constants/gestion';
+import { CONTRATISTA_TODOS, ROLES } from '../constants/gestion';
 
 /** @param {unknown} role */
 export function normalizeRole(role) {
@@ -99,6 +99,11 @@ export function canViewGlobalMetrics(profile) {
 /** Eliminación / limpieza masiva por tipo de gestión (administración). */
 export function canBulkManageSots(profile) {
   return isAdmin(profile) || isSupervisor(profile);
+}
+
+/** Perfil con acceso a todos los contratistas (`users.contratista === __TODOS__`). */
+export function userSeesAllContractors(profile) {
+  return String(profile?.contratista ?? '').trim() === CONTRATISTA_TODOS;
 }
 
 /**

@@ -10,8 +10,14 @@ const auth = getAuth();
 
 const ALLOWED_ROLES = ['admin', 'supervisor', 'asesor'];
 
+const CONTRATISTA_TODOS = '__TODOS__';
+
 function metricDocIdForContractor(contratista) {
-  const c = String(contratista ?? '').trim().toLowerCase();
+  const raw = String(contratista ?? '').trim();
+  if (raw === CONTRATISTA_TODOS) {
+    return 'global';
+  }
+  const c = raw.toLowerCase();
   if (!c) return null;
   return `contratista_${c.replace(/[^a-z0-9]+/g, '_')}`;
 }

@@ -23,6 +23,7 @@ import { metricasDocIdForContractor } from '../utils/metricasDocId';
 import { chunkArray } from '../utils/chunk';
 import { mapExcelGestionToTipo } from '../utils/excelGestionMap';
 import { normalizeSotDisplay, sotToDocId } from '../utils/sotId';
+import { CONTRATISTA_TODOS } from '../constants/gestion';
 import { profileRol } from '../utils/roles';
 
 /** Colección principal de órdenes SOT en Firestore. */
@@ -246,10 +247,12 @@ export function buildOrdenesQuery(
   const contractor = String(profile?.contratista ?? '').trim();
   const selectedContractor = String(filters.contratista ?? '').trim();
 
-  // Asesor/supervisor: Firestore exige que el `where(contratista)` coincida con
-  // users/{uid}.contratista. No usar el valor del filtro del UI (puede ser otro).
+  // Asesor/supervisor: por defecto `where(contratista)` = perfil. Valor especial
+  // __TODOS__ (solo admin en users): sin filtro por contratista, como admin.
   if (rol === 'asesor' || rol === 'supervisor') {
-    if (contractor) {
+    if (contractor === CONTRATISTA_TODOS) {
+      // sin where contratista
+    } else if (contractor) {
       constraints.push(where('contratista', '==', contractor));
     } else {
       constraints.push(where('contratista', '==', '__UNASSIGNED__'));
@@ -484,7 +487,7 @@ function bulkByGestionTipoConstraints(profile, tipoGestion) {
   }
   /** @type {import('firebase/firestore').QueryConstraint[]} */
   const c = [];
-  if (rol === 'supervisor') {
+  if (rol === 'supervisor' && contractor !== CONTRATISTA_TODOS) {
     c.push(where('contratista', '==', contractor));
   }
   c.push(where('gestionTipo', '==', tipo));

@@ -73,9 +73,15 @@ service cloud.firestore {
       return normStr(contractorField) == normStr(userData().contratista);
     }
 
-    // Lectura de un documento sot: admin ve todo; resto solo su contratista
+    // Perfil users.contratista == '__TODOS__' (solo admin lo asigna): ve todos los SOT.
+    function contratistaEsTodos() {
+      return normStr(userData().contratista) == '__TODOS__';
+    }
+
+    // Lectura de un documento sot: admin ve todo; __TODOS__ como admin; resto solo su contratista
     function canReadSotDoc() {
       return isAdmin()
+        || (contratistaEsTodos() && (isSupervisor() || isAsesor()))
         || ((isSupervisor() || isAsesor()) && userOwnsContractorField(resource.data.contratista));
     }
 
@@ -84,18 +90,20 @@ service cloud.firestore {
       return request.resource.data.contratista == resource.data.contratista;
     }
 
-    // Quitar gestión (pasar de gestionada a pendiente) solo admin/supervisor.
+    // Quitar gestión: admin/supervisor; asesor solo si perfil __TODOS__.
     function gestionClearAllowed() {
       return !(resource.data.tieneGestion == true
         && request.resource.data.tieneGestion == false)
         || isAdmin()
-        || isSupervisor();
+        || isSupervisor()
+        || (contratistaEsTodos() && isAsesor());
     }
 
     function canUpdateSotDoc() {
       return gestionClearAllowed()
         && (
           isAdmin()
+          || (contratistaEsTodos() && (isSupervisor() || isAsesor()) && contratistaUnchanged())
           || (
             isSupervisor()
             && userOwnsContractorField(resource.data.contratista)
@@ -111,6 +119,7 @@ service cloud.firestore {
 
     function canDeleteSotDoc() {
       return isAdmin()
+        || (isSupervisor() && contratistaEsTodos())
         || (
           isSupervisor()
           && userOwnsContractorField(resource.data.contratista)
@@ -119,6 +128,7 @@ service cloud.firestore {
 
     function canCreateSotDoc() {
       return isAdmin()
+        || (isSupervisor() && contratistaEsTodos())
         || (
           isSupervisor()
           && userOwnsContractorField(request.resource.data.contratista)
@@ -146,6 +156,7 @@ service cloud.firestore {
     match /metricas/{docId} {
       allow read: if signedIn() && hasUserDoc() && (
         isAdmin()
+        || (contratistaEsTodos() && docId == 'global')
         || ((isSupervisor() || isAsesor()) && docId == userData().metricasDocId)
       );
       allow write: if false;
