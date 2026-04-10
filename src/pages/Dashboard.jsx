@@ -162,19 +162,6 @@ export default function Dashboard() {
 
   const aggregated = useAggregatedMetrics(profileForQuery, showGlobalMetricCards);
 
-  const metricsDataHint = useMemo(() => {
-    if (!canViewGlobalMetrics(profile)) return null;
-    const maxRows = roleNeedsStrictFilters
-      ? SOTS_SEED_LIMIT_STRICT
-      : SOTS_SEED_LIMIT_ADMIN;
-    const hasServerFilters = Object.keys(strictQueryFilters).length > 0;
-    return `Totales de tarjetas: documento agregado en Firestore (colección «metricas», 1 lectura). Tabla y gráficos: hasta ${maxRows} filas cargadas por rendimiento${
-      hasServerFilters
-        ? '; la consulta incluye los filtros seleccionados.'
-        : '. Si necesita ver más filas en tabla, exporte con filtros o suba el límite en código.'
-    }`;
-  }, [profile, roleNeedsStrictFilters, strictQueryFilters]);
-
   const seed = useSotsSeed(
     profileForQuery,
     !missingRequiredFilters,
@@ -552,9 +539,6 @@ export default function Dashboard() {
         <h1 className="text-2xl font-semibold text-slate-900">
           Dashboard de operación SOT
         </h1>
-        <p className="mt-1 text-slate-600">
-          Gestión productiva para call center: filtros rápidos, métricas y acciones sin recargas.
-        </p>
       </div>
 
       {contractorMissing ? (
@@ -572,7 +556,6 @@ export default function Dashboard() {
             aggregated.refresh();
             seed.reload();
           }}
-          dataHint={metricsDataHint}
         />
       )}
       {canViewGlobalMetrics(profile) && (
@@ -591,27 +574,6 @@ export default function Dashboard() {
                   ? 'Administración — Excel y usuarios'
                   : 'Importación — Excel base'}
               </h2>
-              <p className="mt-1 text-sm text-slate-600">
-                <strong>Cargar Excel:</strong> vista previa y guardado en Firestore
-                (colección <code className="rounded bg-slate-100 px-1 text-xs">sots</code>).
-                Columnas SOT, Región, Departamento, Distrito, Contratista; opcional
-                Gestión.{' '}
-                {isAdmin(profile) ? (
-                  <Link
-                    to="/admin"
-                    className="font-medium text-brand-700 underline hover:text-brand-800"
-                  >
-                    Crear usuarios y más opciones
-                  </Link>
-                ) : (
-                  <Link
-                    to="/admin"
-                    className="font-medium text-brand-700 underline hover:text-brand-800"
-                  >
-                    Abrir panel de importación
-                  </Link>
-                )}
-              </p>
             </div>
             <Link
               to="/admin"
