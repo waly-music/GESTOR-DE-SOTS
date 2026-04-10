@@ -2,10 +2,13 @@ import {
   collection,
   doc,
   getDocs,
+  limit,
+  orderBy,
   query,
   serverTimestamp,
   updateDoc,
 } from 'firebase/firestore';
+import { USERS_LIST_MAX } from '../constants/firestoreLimits';
 import { db } from './firebase';
 import { pickRoleFromUserDoc } from '../utils/roles';
 import { metricasDocIdForContractor } from '../utils/metricasDocId';
@@ -13,7 +16,13 @@ import { metricasDocIdForContractor } from '../utils/metricasDocId';
 const USERS = 'users';
 
 export async function listUsers() {
-  const snap = await getDocs(query(collection(db, USERS)));
+  const snap = await getDocs(
+    query(
+      collection(db, USERS),
+      orderBy('email'),
+      limit(USERS_LIST_MAX),
+    ),
+  );
   const rows = snap.docs.map((d) => {
     const data = d.data();
     return { id: d.id, ...data, rol: pickRoleFromUserDoc(data) };

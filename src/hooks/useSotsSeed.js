@@ -8,7 +8,8 @@ import {
 } from '../services/ordenesService';
 
 const SEED_LIMIT = 200;
-const CACHE_TTL_MS = 5 * 60 * 1000;
+/** TTL un poco mayor para reducir refetch al volver al dashboard con mismos filtros. */
+const CACHE_TTL_MS = 6 * 60 * 1000;
 
 /**
  * Muestra acotada de SOTs + opción "Cargar más" con paginación real (`startAfter`).

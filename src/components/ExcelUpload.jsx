@@ -6,6 +6,7 @@ import { Spinner } from './Spinner';
 
 export function ExcelUpload({ onDone }) {
   const inputRef = useRef(null);
+  const importingRef = useRef(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
   const [progress, setProgress] = useState(null);
@@ -42,7 +43,8 @@ export function ExcelUpload({ onDone }) {
   }
 
   async function confirmImport() {
-    if (!previewRows?.length) return;
+    if (!previewRows?.length || importingRef.current) return;
+    importingRef.current = true;
     setBusy(true);
     setMsg(null);
     setProgress(null);
@@ -57,6 +59,7 @@ export function ExcelUpload({ onDone }) {
     } catch (err) {
       setMsg({ type: 'err', text: err.message ?? String(err) });
     } finally {
+      importingRef.current = false;
       setBusy(false);
       setProgress(null);
     }

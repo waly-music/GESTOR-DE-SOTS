@@ -20,6 +20,7 @@ import { useAggregatedMetrics } from '../hooks/useAggregatedMetrics';
 import { saveGestion, updateOrdenObservacion } from '../services/ordenesService';
 import { getFiltrosOptions, getFiltrosSeedRows } from '../services/filtrosService';
 import { formatDateOnly } from '../utils/gestionColors';
+import { EXPORT_MAX_ROWS_DEFAULT } from '../constants/firestoreLimits';
 import { formatFechaProgSgaForRow } from '../utils/fechaProgramacionDisplay';
 import { matchesDilacionFilter, parseDilacionNumber } from '../utils/dilacionUi';
 import { sortOrdenesByAgendaPriority } from '../utils/ordenSort';
@@ -611,6 +612,10 @@ export default function Dashboard() {
 
   async function handleExport() {
     if (!profileForQuery) return;
+    const ok = window.confirm(
+      `La exportación leerá hasta ${EXPORT_MAX_ROWS_DEFAULT.toLocaleString('es-PE')} filas de Firestore (según filtros), en bloques. ¿Continuar?`,
+    );
+    if (!ok) return;
     setExporting(true);
     setActionMsg(null);
     try {
@@ -627,7 +632,7 @@ export default function Dashboard() {
       );
       setActionMsg({
         type: 'ok',
-        text: `Exportación lista (${list.length} fila${list.length === 1 ? '' : 's'}).`,
+        text: `Exportación lista (${list.length} fila${list.length === 1 ? '' : 's'}; tope ${EXPORT_MAX_ROWS_DEFAULT.toLocaleString('es-PE')} filas).`,
       });
     } catch (err) {
       setActionMsg({
@@ -692,8 +697,7 @@ export default function Dashboard() {
           metrics={metricsForCards}
           loading={metricsCardsLoading}
           onRefresh={() => {
-            aggregated.refresh();
-            seed.reload();
+            void Promise.all([aggregated.refresh(), seed.reload()]);
           }}
         />
       )}
@@ -725,8 +729,7 @@ export default function Dashboard() {
           </div>
           <ExcelUpload
             onDone={() => {
-              seed.reload();
-              aggregated.refresh();
+              void Promise.all([seed.reload(), aggregated.refresh()]);
             }}
           />
         </section>
@@ -740,6 +743,7 @@ export default function Dashboard() {
           <button
             type="button"
             disabled={exporting}
+            title={`Exporta según filtros (máx. ${EXPORT_MAX_ROWS_DEFAULT.toLocaleString('es-PE')} filas; consume lecturas de Firestore)`}
             onClick={handleExport}
             className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-800 hover:bg-slate-50 disabled:opacity-50"
           >

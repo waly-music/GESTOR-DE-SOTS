@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { isAuthDisabled } from '../config/authMode';
 import { listUsers, updateUserFields } from '../services/usersService';
 import { createUserWithAuth } from '../services/userAdminService';
+import { USERS_LIST_MAX } from '../constants/firestoreLimits';
 import { CONTRATISTA_TODOS, ROLES } from '../constants/gestion';
 import { Spinner } from '../components/Spinner';
 
@@ -129,6 +130,13 @@ export default function AdminUsers({ embedded = false }) {
 
   return (
     <div className="space-y-6">
+      {users.length >= USERS_LIST_MAX ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+          Se muestran como máximo <strong>{USERS_LIST_MAX}</strong> cuentas (orden por correo) para
+          reducir lecturas en Firestore. Si necesita ver más, use la consola de Firebase.
+        </div>
+      ) : null}
+
       {!embedded && (
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Usuarios</h1>

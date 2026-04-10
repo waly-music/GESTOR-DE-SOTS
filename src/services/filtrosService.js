@@ -4,11 +4,13 @@ import {
   getDoc,
   getDocs,
   limit,
+  orderBy,
   query,
   runTransaction,
   serverTimestamp,
   where,
 } from 'firebase/firestore';
+import { FILTROS_SEED_SAMPLE } from '../constants/firestoreLimits';
 import { db } from './firebase';
 
 const REF = doc(db, 'config', 'filtros');
@@ -69,16 +71,22 @@ export async function getFiltrosOptions() {
 }
 
 /**
- * Carga una muestra ligera para construir combos dependientes por contratista.
+ * Muestra acotada para combos dependientes. Listas globales vienen de `config/filtros`
+ * (`getFiltrosOptions`); esto solo añade variedad por contratista sin leer miles de docs.
+ *
  * @param {string | null | undefined} contratista
  */
 export async function getFiltrosSeedRows(contratista) {
   const c = String(contratista ?? '').trim();
   const base = collection(db, 'sots');
-  // Tope para poblar combos; cada llamada = hasta 1000 lecturas (opcional: bajar si el costo importa).
   const q = c
-    ? query(base, where('contratista', '==', c), limit(1000))
-    : query(base, limit(1000));
+    ? query(
+        base,
+        where('contratista', '==', c),
+        orderBy('sot'),
+        limit(FILTROS_SEED_SAMPLE),
+      )
+    : query(base, orderBy('sot'), limit(FILTROS_SEED_SAMPLE));
   const snap = await getDocs(q);
   return snap.docs.map((d) => {
     const x = d.data() ?? {};

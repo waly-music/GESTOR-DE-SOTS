@@ -25,6 +25,10 @@ import { mapExcelGestionToTipo } from '../utils/excelGestionMap';
 import { normalizeSotDisplay, sotToDocId } from '../utils/sotId';
 import { CONTRATISTA_TODOS } from '../constants/gestion';
 import { buildAgendaFieldsFromExcelRow } from '../utils/excelAgendaFields';
+import {
+  EXPORT_MAX_ROWS_DEFAULT,
+  IMPORT_READ_CONCURRENCY,
+} from '../constants/firestoreLimits';
 import { isAdmin, profileRol } from '../utils/roles';
 
 /** Colección principal de órdenes SOT en Firestore. */
@@ -68,19 +72,23 @@ function excelImportGestionFields(gestionRaw) {
  */
 export async function fetchOrdenDocsByIds(docIds, onProgress) {
   const unique = [...new Set(docIds)].filter(Boolean);
-  // Firestore permite hasta 30 valores en `in`; usar 10 hace esta fase muy lenta.
   const chunks = chunkArray(unique, 30);
   /** @type {Map<string, import('firebase/firestore').DocumentSnapshot>} */
   const map = new Map();
   let done = 0;
-  for (const part of chunks) {
-    const q = query(
-      collection(db, COL),
-      where(documentId(), 'in', part),
+  for (let i = 0; i < chunks.length; i += IMPORT_READ_CONCURRENCY) {
+    const slice = chunks.slice(i, i + IMPORT_READ_CONCURRENCY);
+    const snaps = await Promise.all(
+      slice.map((part) =>
+        getDocs(
+          query(collection(db, COL), where(documentId(), 'in', part)),
+        ),
+      ),
     );
-    const snap = await getDocs(q);
-    snap.forEach((d) => map.set(d.id, d));
-    done += part.length;
+    for (const snap of snaps) {
+      snap.forEach((d) => map.set(d.id, d));
+    }
+    done += slice.reduce((acc, part) => acc + part.length, 0);
     onProgress?.(Math.min(done, unique.length), unique.length);
   }
   return map;
@@ -644,7 +652,11 @@ export async function deleteAllSotsForAdmin(profile, onProgress) {
   return { deleted: totalDeleted };
 }
 
-export async function fetchAllOrdenesForExport(profile, filters, maxRows = 5000) {
+export async function fetchAllOrdenesForExport(
+  profile,
+  filters,
+  maxRows = EXPORT_MAX_ROWS_DEFAULT,
+) {
   const pageSize = 500;
   const all = [];
   let cursor = null;
