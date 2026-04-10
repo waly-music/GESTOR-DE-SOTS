@@ -19,8 +19,12 @@ import { useSotsSeed } from '../hooks/useSotsSeed';
 import { useAggregatedMetrics } from '../hooks/useAggregatedMetrics';
 import { saveGestion, updateOrdenObservacion } from '../services/ordenesService';
 import { getFiltrosOptions, getFiltrosSeedRows } from '../services/filtrosService';
+import { formatDateOnly } from '../utils/gestionColors';
+import { matchesDilacionFilter, parseDilacionNumber } from '../utils/dilacionUi';
+import { sortOrdenesByAgendaPriority } from '../utils/ordenSort';
+import { STATUS_AGENDA } from '../utils/statusAgenda';
 
-const STORAGE_FILTERS_KEY = 'sot_dashboard_filters_v2';
+const STORAGE_FILTERS_KEY = 'sot_dashboard_filters_v3';
 
 /** Máx. filas cargadas para la tabla (consulta paginada). No es el total de la base. */
 const SOTS_SEED_LIMIT_STRICT = 500;
@@ -52,18 +56,24 @@ function gestionadoPorLabel(o) {
 }
 
 function buildExportRows(list) {
-  return list.map((o) => ({
-    SOT: o.sot,
-    REGION: o.region,
-    DEPARTAMENTO: o.departamento,
-    DISTRITO: o.distrito,
-    CONTRATISTA: o.contratista,
-    GESTION: o.gestionTipo ?? o.gestion?.tipoGestion ?? '',
-    GESTIONADO_POR: gestionadoPorLabel(o),
-    FECHA_CITA: fechaCitaIso(o),
-    RANGO: o.gestion?.rangoHorario ?? '',
-    USUARIO: o.gestion?.usuarioEmail ?? '',
-  }));
+  return list.map((o) => {
+    const fechaProg = formatDateOnly(o.fecha_programacion_sga);
+    return {
+      SOT: o.sot,
+      REGION: o.region,
+      DEPARTAMENTO: o.departamento,
+      DISTRITO: o.distrito,
+      CONTRATISTA: o.contratista,
+      FECHA_PROGRAMACION_SGA: fechaProg === '—' ? '' : fechaProg,
+      STATUS_AGENDA: o.status_agenda ?? '',
+      DILACION: o.dilacion ?? '',
+      GESTION: o.gestionTipo ?? o.gestion?.tipoGestion ?? '',
+      GESTIONADO_POR: gestionadoPorLabel(o),
+      FECHA_CITA: fechaCitaIso(o),
+      RANGO: o.gestion?.rangoHorario ?? '',
+      USUARIO: o.gestion?.usuarioEmail ?? '',
+    };
+  });
 }
 
 function normalizeFilterValue(v) {
@@ -87,6 +97,8 @@ export default function Dashboard() {
           distrito: saved.distrito ?? '',
           contratista: saved.contratista ?? '',
           searchSot: saved.searchSot ?? '',
+          statusAgenda: saved.statusAgenda ?? '',
+          dilacionRango: saved.dilacionRango ?? '',
         };
       }
     } catch {
@@ -98,6 +110,8 @@ export default function Dashboard() {
       distrito: '',
       contratista: '',
       searchSot: '',
+      statusAgenda: '',
+      dilacionRango: '',
     };
   });
   const [modalOrden, setModalOrden] = useState(null);
@@ -171,6 +185,9 @@ export default function Dashboard() {
 
   const showGlobalMetricCards =
     canViewGlobalMetrics(profile) && !missingRequiredFilters;
+
+  /** Filtros agenda/dilación en memoria (solo admin y supervisor). */
+  const canUseAgendaFilters = canViewGlobalMetrics(profile);
 
   const aggregated = useAggregatedMetrics(profileForQuery, showGlobalMetricCards);
 
@@ -309,7 +326,7 @@ export default function Dashboard() {
     filters.distrito,
   ]);
 
-  const rowsFiltered = useMemo(
+  const rowsBaseFiltered = useMemo(
     () =>
       missingRequiredFilters
         ? []
@@ -348,6 +365,51 @@ export default function Dashboard() {
       profile,
     ],
   );
+
+  const rowsFiltered = useMemo(() => {
+    if (!canUseAgendaFilters) {
+      return rowsBaseFiltered;
+    }
+    const sa = String(filters.statusAgenda ?? '').trim();
+    const dr = String(filters.dilacionRango ?? '').trim();
+    if (!sa && !dr) {
+      return rowsBaseFiltered;
+    }
+    return rowsBaseFiltered.filter((item) => {
+      if (sa && (item.status_agenda ?? '') !== sa) {
+        return false;
+      }
+      return matchesDilacionFilter(item.dilacion, dr);
+    });
+  }, [
+    rowsBaseFiltered,
+    canUseAgendaFilters,
+    filters.statusAgenda,
+    filters.dilacionRango,
+  ]);
+
+  const rowsSorted = useMemo(
+    () => sortOrdenesByAgendaPriority(rowsFiltered),
+    [rowsFiltered],
+  );
+
+  const operationalAlerts = useMemo(() => {
+    if (!canUseAgendaFilters) {
+      return { agendaVencida: 0, dilacionGt7: 0 };
+    }
+    let agendaVencida = 0;
+    let dilacionGt7 = 0;
+    for (const o of rowsBaseFiltered) {
+      if ((o.status_agenda ?? '') === STATUS_AGENDA.VENCIDA) {
+        agendaVencida += 1;
+      }
+      const n = parseDilacionNumber(o.dilacion);
+      if (n != null && n >= 7) {
+        dilacionGt7 += 1;
+      }
+    }
+    return { agendaVencida, dilacionGt7 };
+  }, [rowsBaseFiltered, canUseAgendaFilters]);
 
   const localMetrics = useMemo(() => {
     const total = rowsFiltered.length;
@@ -393,8 +455,29 @@ export default function Dashboard() {
     if (filters.contratista) {
       chips.push({ key: 'contratista', label: filters.contratista });
     }
+    if (filters.statusAgenda) {
+      chips.push({ key: 'statusAgenda', label: filters.statusAgenda });
+    }
+    if (filters.dilacionRango) {
+      const dl = {
+        lte3: 'Dilación ≤ 3 días',
+        between3_7: 'Dilación entre 3 y 7 días',
+        gte7: 'Dilación ≥ 7 días',
+      }[filters.dilacionRango];
+      chips.push({
+        key: 'dilacionRango',
+        label: dl ?? filters.dilacionRango,
+      });
+    }
     return chips;
-  }, [filters.region, filters.departamento, filters.distrito, filters.contratista]);
+  }, [
+    filters.region,
+    filters.departamento,
+    filters.distrito,
+    filters.contratista,
+    filters.statusAgenda,
+    filters.dilacionRango,
+  ]);
 
   const filterFields = (
     <div className="space-y-3">
@@ -444,6 +527,44 @@ export default function Dashboard() {
         />
       </div>
       </div>
+      {canUseAgendaFilters ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="block text-xs font-medium text-slate-600">
+              Estado agenda
+            </label>
+            <select
+              value={filters.statusAgenda}
+              onChange={(e) =>
+                setFilters((f) => ({ ...f, statusAgenda: e.target.value }))
+              }
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="">Todos</option>
+              <option value={STATUS_AGENDA.VENCIDA}>{STATUS_AGENDA.VENCIDA}</option>
+              <option value={STATUS_AGENDA.HOY}>{STATUS_AGENDA.HOY}</option>
+              <option value={STATUS_AGENDA.FUTURO}>{STATUS_AGENDA.FUTURO}</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600">
+              Dilación (días)
+            </label>
+            <select
+              value={filters.dilacionRango}
+              onChange={(e) =>
+                setFilters((f) => ({ ...f, dilacionRango: e.target.value }))
+              }
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="">Todos</option>
+              <option value="lte3">Menor o igual a 3 días</option>
+              <option value="between3_7">Entre 3 y 7 días (excl. extremos)</option>
+              <option value="gte7">Mayor o igual a 7 días</option>
+            </select>
+          </div>
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-center gap-2">
         {activeFilterChips.map((chip) => (
           <button
@@ -475,6 +596,8 @@ export default function Dashboard() {
               distrito: '',
               contratista: '',
               searchSot: '',
+              statusAgenda: '',
+              dilacionRango: '',
             })
           }
           className="rounded-lg border border-slate-200 px-3 py-1 text-xs text-slate-700 hover:bg-slate-50"
@@ -623,6 +746,34 @@ export default function Dashboard() {
           </button>
         </div>
         {filterFields}
+        {canUseAgendaFilters && !missingRequiredFilters && (operationalAlerts.agendaVencida > 0 ||
+          operationalAlerts.dilacionGt7 > 0) ? (
+          <div
+            className={`rounded-lg border px-3 py-2 text-sm ${
+              operationalAlerts.agendaVencida >= 10
+                ? 'border-red-300 bg-red-50 text-red-950'
+                : 'border-amber-200 bg-amber-50 text-amber-950'
+            }`}
+            role="status"
+          >
+            <p className="font-medium">Alertas operativas (muestra actual)</p>
+            <ul className="mt-1 list-inside list-disc space-y-0.5">
+              {operationalAlerts.agendaVencida > 0 ? (
+                <li>
+                  {operationalAlerts.agendaVencida >= 10 ? '⚠️ ' : ''}
+                  Tienes {operationalAlerts.agendaVencida} SOT
+                  {operationalAlerts.agendaVencida === 1 ? '' : 's'} con agenda vencida
+                </li>
+              ) : null}
+              {operationalAlerts.dilacionGt7 > 0 ? (
+                <li>
+                  {operationalAlerts.dilacionGt7} SOT
+                  {operationalAlerts.dilacionGt7 === 1 ? '' : 's'} con dilación mayor a 7 días
+                </li>
+              ) : null}
+            </ul>
+          </div>
+        ) : null}
         {missingRequiredFilters && (
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
             Seleccione todos los filtros para ver las órdenes.
@@ -631,11 +782,11 @@ export default function Dashboard() {
       </section>
 
       <OrdersTable
-        rows={rowsFiltered}
+        rows={rowsSorted}
         loading={seed.loading}
         error={seed.error}
         pageIndex={0}
-        pageSize={rowsFiltered.length}
+        pageSize={rowsSorted.length}
         hasMore={false}
         canPrev={false}
         onPrev={() => {}}

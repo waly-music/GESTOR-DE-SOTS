@@ -1,3 +1,5 @@
+import { buildAgendaFieldsFromExcelRow } from '../utils/excelAgendaFields';
+
 /**
  * Vista previa de filas Excel antes de confirmar la carga en Firestore.
  */
@@ -41,22 +43,39 @@ export function ExcelPreviewModal({
                 <th className="px-3 py-2 font-semibold">Departamento</th>
                 <th className="px-3 py-2 font-semibold">Distrito</th>
                 <th className="px-3 py-2 font-semibold">Contratista</th>
+                <th className="px-3 py-2 font-semibold">Fecha prog. SGA</th>
+                <th className="px-3 py-2 font-semibold">Estado agenda</th>
+                <th className="px-3 py-2 font-semibold">Dilación</th>
                 <th className="px-3 py-2 font-semibold">Gestión (Excel)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {slice.map((r, i) => (
-                <tr key={`${r.sot}-${i}`} className="hover:bg-slate-50">
-                  <td className="whitespace-nowrap px-3 py-1.5 font-mono">{r.sot}</td>
-                  <td className="px-3 py-1.5">{r.region}</td>
-                  <td className="px-3 py-1.5">{r.departamento}</td>
-                  <td className="px-3 py-1.5">{r.distrito}</td>
-                  <td className="px-3 py-1.5">{r.contratista}</td>
-                  <td className="px-3 py-1.5 text-slate-600">
-                    {r.gestionRaw || '—'}
-                  </td>
-                </tr>
-              ))}
+              {slice.map((r, i) => {
+                const agenda = buildAgendaFieldsFromExcelRow(r);
+                return (
+                  <tr key={`${r.sot}-${i}`} className="hover:bg-slate-50">
+                    <td className="whitespace-nowrap px-3 py-1.5 font-mono">{r.sot}</td>
+                    <td className="px-3 py-1.5">{r.region}</td>
+                    <td className="px-3 py-1.5">{r.departamento}</td>
+                    <td className="px-3 py-1.5">{r.distrito}</td>
+                    <td className="px-3 py-1.5">{r.contratista}</td>
+                    <td className="max-w-[7rem] truncate px-3 py-1.5 text-slate-600" title={String(r.fechaProgramacionSgaRaw ?? '')}>
+                      {r.fechaProgramacionSgaRaw != null && r.fechaProgramacionSgaRaw !== ''
+                        ? String(r.fechaProgramacionSgaRaw)
+                        : '—'}
+                    </td>
+                    <td className="px-3 py-1.5 text-slate-700">{agenda.status_agenda}</td>
+                    <td className="max-w-[6rem] truncate px-3 py-1.5 text-slate-600" title={String(r.dilacionRaw ?? '')}>
+                      {r.dilacionRaw != null && r.dilacionRaw !== ''
+                        ? String(r.dilacionRaw)
+                        : '—'}
+                    </td>
+                    <td className="px-3 py-1.5 text-slate-600">
+                      {r.gestionRaw || '—'}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

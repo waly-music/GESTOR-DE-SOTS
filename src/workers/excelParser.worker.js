@@ -13,6 +13,14 @@ const COL_ALIASES = {
     'ESTADO',
     'estado gestion',
   ],
+  FECHA_PROGRAMACION_SGA: [
+    'fecha_programacion_sga',
+    'FECHA_PROGRAMACION_SGA',
+    'fecha programacion sga',
+    'FECHA PROGRAMACION SGA',
+    'fecha_prog_sga',
+  ],
+  DILACION: ['dilacion', 'DILACION', 'dilación', 'DILACIÓN'],
 };
 
 function normalizeHeader(h) {
@@ -64,6 +72,8 @@ self.onmessage = async (event) => {
     const idxCon = findColumnIndex(headerRow, COL_ALIASES.CONTRATISTA);
     const idxSot = findColumnIndex(headerRow, COL_ALIASES.SOT);
     const idxGestion = findColumnIndex(headerRow, COL_ALIASES.GESTION);
+    const idxFechaSga = findColumnIndex(headerRow, COL_ALIASES.FECHA_PROGRAMACION_SGA);
+    const idxDilacion = findColumnIndex(headerRow, COL_ALIASES.DILACION);
 
     const errors = [];
     if (idxSot < 0) errors.push('No se encontró la columna SOT.');
@@ -101,6 +111,8 @@ self.onmessage = async (event) => {
         contratista,
         sot,
         gestionRaw,
+        ...(idxFechaSga >= 0 ? { fechaProgramacionSgaRaw: row[idxFechaSga] } : {}),
+        ...(idxDilacion >= 0 ? { dilacionRaw: row[idxDilacion] } : {}),
       });
     }
 

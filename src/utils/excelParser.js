@@ -13,6 +13,14 @@ const COL_ALIASES = {
     'ESTADO',
     'estado gestion',
   ],
+  FECHA_PROGRAMACION_SGA: [
+    'fecha_programacion_sga',
+    'FECHA_PROGRAMACION_SGA',
+    'fecha programacion sga',
+    'FECHA PROGRAMACION SGA',
+    'fecha_prog_sga',
+  ],
+  DILACION: ['dilacion', 'DILACION', 'dilación', 'DILACIÓN'],
 };
 
 function normalizeHeader(h) {
@@ -38,7 +46,7 @@ function findColumnIndex(headers, keys) {
  * Parsea la primera hoja. Optimizado: lee matriz en una pasada.
  * Carga SheetJS de forma diferida para no inflar el bundle principal.
  * @param {ArrayBuffer} arrayBuffer
- * @returns {Promise<{ rows: Array<{region:string,departamento:string,distrito:string,contratista:string,sot:string,gestionRaw:string}>, errors: string[] }>}
+ * @returns {Promise<{ rows: Array<{region:string,departamento:string,distrito:string,contratista:string,sot:string,gestionRaw:string,fechaProgramacionSgaRaw?:unknown,dilacionRaw?:unknown}>, errors: string[] }>}
  */
 export async function parseExcelOrdenes(arrayBuffer) {
   const XLSX = await import('xlsx');
@@ -70,6 +78,8 @@ export async function parseExcelOrdenes(arrayBuffer) {
   const idxCon = findColumnIndex(headerRow, COL_ALIASES.CONTRATISTA);
   const idxSot = findColumnIndex(headerRow, COL_ALIASES.SOT);
   const idxGestion = findColumnIndex(headerRow, COL_ALIASES.GESTION);
+  const idxFechaSga = findColumnIndex(headerRow, COL_ALIASES.FECHA_PROGRAMACION_SGA);
+  const idxDilacion = findColumnIndex(headerRow, COL_ALIASES.DILACION);
 
   const errors = [];
   if (idxSot < 0) errors.push('No se encontró la columna SOT.');
@@ -81,7 +91,7 @@ export async function parseExcelOrdenes(arrayBuffer) {
     return { rows: [], errors };
   }
 
-  /** @type {Array<{region:string,departamento:string,distrito:string,contratista:string,sot:string,gestionRaw:string}>} */
+  /** @type {Array<{region:string,departamento:string,distrito:string,contratista:string,sot:string,gestionRaw:string,fechaProgramacionSgaRaw?:unknown,dilacionRaw?:unknown}>} */
   const rows = [];
   const seen = new Set();
 
@@ -109,6 +119,8 @@ export async function parseExcelOrdenes(arrayBuffer) {
       contratista,
       sot,
       gestionRaw,
+      ...(idxFechaSga >= 0 ? { fechaProgramacionSgaRaw: row[idxFechaSga] } : {}),
+      ...(idxDilacion >= 0 ? { dilacionRaw: row[idxDilacion] } : {}),
     });
   }
 

@@ -24,6 +24,7 @@ import { chunkArray } from '../utils/chunk';
 import { mapExcelGestionToTipo } from '../utils/excelGestionMap';
 import { normalizeSotDisplay, sotToDocId } from '../utils/sotId';
 import { CONTRATISTA_TODOS } from '../constants/gestion';
+import { buildAgendaFieldsFromExcelRow } from '../utils/excelAgendaFields';
 import { profileRol } from '../utils/roles';
 
 /** Colección principal de órdenes SOT en Firestore. */
@@ -87,7 +88,7 @@ export async function fetchOrdenDocsByIds(docIds, onProgress) {
 
 /**
  * Importa filas Excel con lógica: insertar nuevas, actualizar sin gestión, no tocar con gestión.
- * @param {Array<{region:string,departamento:string,distrito:string,contratista:string,sot:string,gestionRaw?:string}>} rows
+ * @param {Array<{region:string,departamento:string,distrito:string,contratista:string,sot:string,gestionRaw?:string,fechaProgramacionSgaRaw?:unknown,dilacionRaw?:unknown}>} rows
  * @param {(info: { phase: string, done: number, total: number }) => void} [onProgress]
  */
 export async function importExcelRows(rows, onProgress) {
@@ -152,6 +153,7 @@ export async function importExcelRows(rows, onProgress) {
   for (const { id, row } of toCreate) {
     const ref = doc(db, COL, id);
     const g = excelImportGestionFields(row.gestionRaw);
+    const agenda = buildAgendaFieldsFromExcelRow(row);
     createOps.push({
       ref,
       data: {
@@ -161,6 +163,7 @@ export async function importExcelRows(rows, onProgress) {
         distrito: row.distrito,
         contratista: row.contratista,
         ...g,
+        ...agenda,
         historial: [],
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -172,6 +175,7 @@ export async function importExcelRows(rows, onProgress) {
   for (const { id, row } of toUpdate) {
     const ref = doc(db, COL, id);
     const g = excelImportGestionFields(row.gestionRaw);
+    const agenda = buildAgendaFieldsFromExcelRow(row);
     updateOps.push({
       ref,
       data: {
@@ -181,6 +185,7 @@ export async function importExcelRows(rows, onProgress) {
         distrito: row.distrito,
         contratista: row.contratista,
         ...g,
+        ...agenda,
         updatedAt: serverTimestamp(),
         lastExcelImportAt: serverTimestamp(),
       },
@@ -361,6 +366,9 @@ export async function getDashboardMetrics(profile) {
 }
 
 /**
+ * Guarda gestión de ticket. No toca `fecha_programacion_sga`, `status_agenda` ni `dilacion`
+ * (provienen solo de la importación Excel).
+ *
  * @param {string} ordenId
  * @param {{
  *   tipoGestion: string,

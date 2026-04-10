@@ -1,4 +1,6 @@
 rules_version = '2';
+// `sots`: fecha_programacion_sga, status_agenda, dilacion se actualizan solo vía import Excel
+// (el cliente no los envía en saveGestion). No restringir aquí para no bloquear reimportaciones.
 // Reglas reforzadas: lectura/escritura de `sots` acotada por contratista del perfil
 // (users/{uid}). Los administradores conservan acceso global.
 // Creación de `users/{uid}` solo con rol inicial "asesor" y campos permitidos.
