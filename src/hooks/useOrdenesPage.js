@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   buildOrdenesQuery,
   fetchQueryPage,
@@ -25,7 +25,7 @@ export function useOrdenesPage(profile, filters) {
   const [lastDoc, setLastDoc] = useState(null);
   const [hasMore, setHasMore] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [cache, setCache] = useState({});
+  const cacheRef = useRef({});
 
   const stableFilters = useMemo(
     () => ({
@@ -74,7 +74,7 @@ export function useOrdenesPage(profile, filters) {
       cursorId: cursor?.id ?? null,
     });
 
-    const cached = cache[cacheKey];
+    const cached = cacheRef.current[cacheKey];
     if (cached) {
       setRows(cached.rows);
       setLastDoc(cached.lastDoc);
@@ -106,14 +106,11 @@ export function useOrdenesPage(profile, filters) {
         const last = snap.docs[snap.docs.length - 1] ?? null;
         setLastDoc(last);
         setHasMore(snap.docs.length === PAGE_SIZE);
-        setCache((prev) => ({
-          ...prev,
-          [cacheKey]: {
-            rows: list,
-            lastDoc: last,
-            hasMore: snap.docs.length === PAGE_SIZE,
-          },
-        }));
+        cacheRef.current[cacheKey] = {
+          rows: list,
+          lastDoc: last,
+          hasMore: snap.docs.length === PAGE_SIZE,
+        };
         setLoading(false);
       })
       .catch((err) => {
@@ -125,7 +122,7 @@ export function useOrdenesPage(profile, filters) {
     return () => {
       cancelled = true;
     };
-  }, [profile, stableFilters, pageIndex, pageCursors, cache]);
+  }, [profile, stableFilters, pageIndex, pageCursors]);
 
   const goNext = useCallback(() => {
     if (!hasMore || !lastDoc) return;

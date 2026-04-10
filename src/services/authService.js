@@ -148,12 +148,9 @@ export async function getUserProfile(uid) {
     displayName,
   };
 
-  console.log('[getUserProfile] Documento users encontrado', {
-    projectId,
-    path,
-    uid: snap.id,
-    datos: profile,
-  });
+  if (import.meta.env.DEV) {
+    console.debug('[getUserProfile] OK', { projectId, path, uid: snap.id, rol: profile.rol });
+  }
 
   return profile;
 }

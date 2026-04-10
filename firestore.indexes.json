@@ -71,6 +71,37 @@
       "collectionGroup": "sots",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "region", "order": "ASCENDING" },
+        { "fieldPath": "departamento", "order": "ASCENDING" },
+        { "fieldPath": "sot", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "sots",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "region", "order": "ASCENDING" },
+        { "fieldPath": "departamento", "order": "ASCENDING" },
+        { "fieldPath": "distrito", "order": "ASCENDING" },
+        { "fieldPath": "sot", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "sots",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "contratista", "order": "ASCENDING" },
+        { "fieldPath": "tieneGestion", "order": "ASCENDING" },
+        { "fieldPath": "region", "order": "ASCENDING" },
+        { "fieldPath": "departamento", "order": "ASCENDING" },
+        { "fieldPath": "distrito", "order": "ASCENDING" },
+        { "fieldPath": "sot", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "sots",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "contratista", "order": "ASCENDING" },
         { "fieldPath": "gestionTipo", "order": "ASCENDING" }
       ]

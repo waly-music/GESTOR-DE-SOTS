@@ -253,13 +253,6 @@ export function buildOrdenesQuery(
   const selectedContractor = String(filters.contratista ?? '').trim();
   const effectiveContractor = selectedContractor || contractor;
 
-  console.log('QUERY PARAMS:', {
-    region: filters.region ?? '',
-    departamento: filters.departamento ?? '',
-    distrito: filters.distrito ?? '',
-    contratista: selectedContractor || contractor || '',
-  });
-
   // Reducción de costos: asesor/supervisor consultan solo su contratista.
   if (rol === 'asesor' || rol === 'supervisor') {
     if (effectiveContractor) {
@@ -293,8 +286,8 @@ export function buildOrdenesQuery(
     constraints.push(where('sot', '>=', sotSearch));
     constraints.push(where('sot', '<=', end));
     constraints.push(orderBy('sot'));
-  } else if (cursor) {
-    // Solo ordenar cuando hay paginación/cursor para evitar índices compuestos innecesarios.
+  } else {
+    // Siempre orden estable por SOT: necesario para paginación y exportación correctas.
     constraints.push(orderBy('sot'));
   }
 

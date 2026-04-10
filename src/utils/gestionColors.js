@@ -53,7 +53,7 @@ export function formatDateOnly(ts) {
  * Devuelve null cuando no representa una fecha válida.
  * @param {any} value
  */
-function toSafeDate(value) {
+export function toSafeDate(value) {
   if (!value) return null;
   if (value instanceof Date) {
     return Number.isNaN(value.getTime()) ? null : value;

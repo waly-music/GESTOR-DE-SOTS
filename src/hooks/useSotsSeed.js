@@ -78,8 +78,9 @@ export function useSotsSeed(profile, enabled = true, queryFilters = {}, seedLimi
           seedLimit,
         );
         const snap = await fetchQueryPage(q);
-        console.log('RESULTS COUNT:', snap.docs.length);
-        console.log('FIRST DOC:', snap.docs[0]?.data?.());
+        if (import.meta.env.DEV) {
+          console.debug('[useSotsSeed] filas:', snap.docs.length);
+        }
         const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         setRows(list);
         try {
@@ -103,8 +104,9 @@ export function useSotsSeed(profile, enabled = true, queryFilters = {}, seedLimi
               { skipAsesorGestionFilter: true },
             );
             const fallbackSnap = await fetchQueryPage(fallbackQ);
-            console.log('RESULTS COUNT (fallback):', fallbackSnap.docs.length);
-            console.log('FIRST DOC (fallback):', fallbackSnap.docs[0]?.data?.());
+            if (import.meta.env.DEV) {
+              console.debug('[useSotsSeed] fallback filas:', fallbackSnap.docs.length);
+            }
             const fallbackList = fallbackSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
             setRows(fallbackList);
             return;

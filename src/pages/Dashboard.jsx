@@ -6,6 +6,8 @@ import {
   canLoadExcel,
   canViewGlobalMetrics,
   isAdmin,
+  isAsesor,
+  isSupervisor,
 } from '../utils/roles';
 import { fetchAllOrdenesForExport } from '../services/ordenesService';
 import { exportRowsToExcel } from '../utils/excelParser';
@@ -14,7 +16,6 @@ import { MetricCards } from '../components/MetricCards';
 import { OrdersTable } from '../components/OrdersTable';
 import { DashboardCharts } from '../components/DashboardCharts';
 import { useSotsSeed } from '../hooks/useSotsSeed';
-import { isAsesor, isSupervisor } from '../utils/roles';
 import { saveGestion, updateOrdenObservacion } from '../services/ordenesService';
 import { getFiltrosOptions, getFiltrosSeedRows } from '../services/filtrosService';
 
@@ -126,32 +127,18 @@ export default function Dashboard() {
       !filters.distrito ||
       !filters.contratista);
 
-  const strictQueryFilters = useMemo(
-    () =>
-      roleNeedsStrictFilters && !missingRequiredFilters
-        ? {
-            // Consulta base robusta por contratista; los demás filtros se validan en cliente.
-            contratista: filters.contratista || undefined,
-          }
-        : {},
-    [
-      roleNeedsStrictFilters,
-      missingRequiredFilters,
-      filters.region,
-      filters.departamento,
-      filters.distrito,
-      filters.contratista,
-    ],
-  );
+  const strictQueryFilters = useMemo(() => {
+    const region = String(filters.region ?? '').trim() || undefined;
+    const departamento = String(filters.departamento ?? '').trim() || undefined;
+    const distrito = String(filters.distrito ?? '').trim() || undefined;
+    const contratista = String(filters.contratista ?? '').trim() || undefined;
 
-  useEffect(() => {
-    if (!roleNeedsStrictFilters || missingRequiredFilters) return;
-    console.log('ASESOR QUERY:', {
-      region: filters.region,
-      departamento: filters.departamento,
-      distrito: filters.distrito,
-      contratista: filters.contratista,
-    });
+    if (roleNeedsStrictFilters) {
+      if (missingRequiredFilters) return {};
+      return { contratista, region, departamento, distrito };
+    }
+    if (!region && !departamento && !distrito && !contratista) return {};
+    return { region, departamento, distrito, contratista };
   }, [
     roleNeedsStrictFilters,
     missingRequiredFilters,
@@ -160,6 +147,21 @@ export default function Dashboard() {
     filters.distrito,
     filters.contratista,
   ]);
+
+  const contractorMissing =
+    (isAsesor(profile) || isSupervisor(profile)) &&
+    !String(profile?.contratista ?? '').trim();
+
+  const metricsDataHint = useMemo(() => {
+    if (!canViewGlobalMetrics(profile)) return null;
+    const maxRows = roleNeedsStrictFilters ? 500 : 200;
+    const hasServerFilters = Object.keys(strictQueryFilters).length > 0;
+    return `Los totales se calculan sobre la tabla (hasta ${maxRows} órdenes cargadas, orden por SOT). ${
+      hasServerFilters
+        ? 'La consulta a Firestore incluye los filtros seleccionados.'
+        : 'Sin filtros de ubicación o contratista, la muestra no representa el total de la base.'
+    }`;
+  }, [profile, roleNeedsStrictFilters, strictQueryFilters]);
 
   const seed = useSotsSeed(
     profileForQuery,
@@ -329,6 +331,7 @@ export default function Dashboard() {
       filters.contratista,
       searchDebounced,
       missingRequiredFilters,
+      profile,
     ],
   );
 
@@ -452,18 +455,28 @@ export default function Dashboard() {
   async function handleExport() {
     if (!profileForQuery) return;
     setExporting(true);
+    setActionMsg(null);
     try {
       const list = await fetchAllOrdenesForExport(profileForQuery, {
         region: filters.region || undefined,
         departamento: filters.departamento || undefined,
         distrito: filters.distrito || undefined,
         contratista: filters.contratista || undefined,
-        searchSot: filters.searchSot || undefined,
+        searchSot: searchDebounced.trim() || undefined,
       });
       await exportRowsToExcel(
         buildExportRows(list),
         `sot_export_${new Date().toISOString().slice(0, 10)}.xlsx`,
       );
+      setActionMsg({
+        type: 'ok',
+        text: `Exportación lista (${list.length} fila${list.length === 1 ? '' : 's'}).`,
+      });
+    } catch (err) {
+      setActionMsg({
+        type: 'err',
+        text: err?.message ?? 'No se pudo exportar. Revise la conexión o los permisos.',
+      });
     } finally {
       setExporting(false);
     }
@@ -513,11 +526,19 @@ export default function Dashboard() {
         </p>
       </div>
 
+      {contractorMissing ? (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+          Su perfil no tiene <strong>contratista</strong> asignado. No verá órdenes hasta que un
+          administrador lo configure en su cuenta.
+        </div>
+      ) : null}
+
       {canViewGlobalMetrics(profile) && (
         <MetricCards
           metrics={localMetrics}
           loading={seed.loading}
           onRefresh={seed.reload}
+          dataHint={metricsDataHint}
         />
       )}
       {canViewGlobalMetrics(profile) && (

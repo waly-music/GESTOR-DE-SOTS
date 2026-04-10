@@ -12,9 +12,10 @@ const Administration = lazy(() => import('./pages/Administration'));
 const Links = lazy(() => import('./pages/Links'));
 
 export default function App() {
+  const routerBase = import.meta.env.BASE_URL || '/';
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <BrowserRouter basename={routerBase}>
         <Routes>
           <Route
             path="/login"

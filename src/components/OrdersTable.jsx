@@ -35,7 +35,13 @@ export function OrdersTable({
     return (
       <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
         <p className="font-medium">Error al cargar órdenes</p>
-        <p className="mt-1">No pudimos cargar la información. Intente nuevamente.</p>
+        <p className="mt-1">
+          No pudimos cargar la información. Intente nuevamente o revise permisos e índices
+          de Firestore.
+        </p>
+        <p className="mt-2 break-all font-mono text-xs text-red-900/90" title={error}>
+          {error}
+        </p>
       </div>
     );
   }

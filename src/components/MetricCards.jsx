@@ -1,4 +1,4 @@
-export function MetricCards({ metrics, loading, onRefresh }) {
+export function MetricCards({ metrics, loading, onRefresh, dataHint }) {
   if (loading && !metrics) {
     return (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -42,7 +42,7 @@ export function MetricCards({ metrics, loading, onRefresh }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex justify-end">
+      <div className="flex flex-col items-end gap-1 sm:flex-row sm:items-center sm:justify-end">
         <button
           type="button"
           onClick={onRefresh}
@@ -50,6 +50,9 @@ export function MetricCards({ metrics, loading, onRefresh }) {
         >
           Actualizar métricas
         </button>
+        {dataHint ? (
+          <p className="max-w-xl text-right text-[11px] leading-snug text-slate-500">{dataHint}</p>
+        ) : null}
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {items.map((it) => (

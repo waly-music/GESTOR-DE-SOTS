@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { TIPOS_GESTION, RANGOS_HORARIO } from '../constants/gestion';
 import { saveGestion, updateOrdenObservacion } from '../services/ordenesService';
-import { formatDateOnly, formatTs } from '../utils/gestionColors';
+import { formatDateOnly, formatTs, toSafeDate } from '../utils/gestionColors';
 
 /**
  * @param {{
@@ -31,12 +31,8 @@ export function GestionModal({ open, onClose, orden, onSaved, onSaveGestion }) {
     if (!orden) return;
     const g = orden.gestion;
     setTipo(g?.tipoGestion ?? '');
-    if (g?.fecha?.toDate) {
-      const d = g.fecha.toDate();
-      setFecha(d.toISOString().slice(0, 10));
-    } else {
-      setFecha('');
-    }
+    const fechaD = toSafeDate(g?.fecha);
+    setFecha(fechaD ? fechaD.toISOString().slice(0, 10) : '');
     setRango(g?.rangoHorario ?? '');
     setObservacion(String(orden.observacion ?? '').slice(0, 120));
     setErr(null);
@@ -48,6 +44,7 @@ export function GestionModal({ open, onClose, orden, onSaved, onSaveGestion }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    if (saving) return;
     if (!orden || !user) return;
     setErr(null);
 
