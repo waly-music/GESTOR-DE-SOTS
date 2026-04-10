@@ -119,24 +119,34 @@ export default function Dashboard() {
   const profileForQuery = useMemo(
     () =>
       profile
-        ? { rol: profile.rol, contratista: profile.contratista ?? null }
+        ? {
+            rol: profile.rol,
+            contratista: profile.contratista ?? null,
+            metricasDocId: profile.metricasDocId ?? null,
+          }
         : null,
     [profile],
   );
 
   const roleNeedsStrictFilters = isAsesor(profile) || isSupervisor(profile);
+  const contractorContext =
+    String(profile?.contratista ?? '').trim() ||
+    String(filters.contratista ?? '').trim();
   const missingRequiredFilters =
     roleNeedsStrictFilters &&
     (!filters.region ||
       !filters.departamento ||
       !filters.distrito ||
-      !filters.contratista);
+      !contractorContext);
 
   const strictQueryFilters = useMemo(() => {
     const region = String(filters.region ?? '').trim() || undefined;
     const departamento = String(filters.departamento ?? '').trim() || undefined;
     const distrito = String(filters.distrito ?? '').trim() || undefined;
-    const contratista = String(filters.contratista ?? '').trim() || undefined;
+    const contratista =
+      String(filters.contratista ?? '').trim() ||
+      String(profile?.contratista ?? '').trim() ||
+      undefined;
 
     if (roleNeedsStrictFilters) {
       if (missingRequiredFilters) return {};
@@ -151,6 +161,7 @@ export default function Dashboard() {
     filters.departamento,
     filters.distrito,
     filters.contratista,
+    profile?.contratista,
   ]);
 
   const contractorMissing =

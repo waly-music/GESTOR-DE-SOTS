@@ -18,9 +18,10 @@ export function useAggregatedMetrics(profile, enabled = true) {
 
   const rol = profile?.rol;
   const contratista = profile?.contratista ?? null;
+  const metricasDocId = profile?.metricasDocId ?? null;
 
   const refresh = useCallback(async () => {
-    const slice = { rol, contratista };
+    const slice = { rol, contratista, metricasDocId };
     if (!enabled || !rol || !canViewGlobalMetrics(slice)) {
       setMetrics(null);
       setLoading(false);
@@ -41,7 +42,7 @@ export function useAggregatedMetrics(profile, enabled = true) {
     } finally {
       setLoading(false);
     }
-  }, [enabled, rol, contratista]);
+  }, [enabled, rol, contratista, metricasDocId]);
 
   useEffect(() => {
     refresh();

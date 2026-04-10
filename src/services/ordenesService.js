@@ -19,6 +19,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { mergeFiltrosFromExcelRows } from './filtrosService';
+import { metricasDocIdForContractor } from '../utils/metricasDocId';
 import { chunkArray } from '../utils/chunk';
 import { mapExcelGestionToTipo } from '../utils/excelGestionMap';
 import { normalizeSotDisplay, sotToDocId } from '../utils/sotId';
@@ -244,14 +245,13 @@ export function buildOrdenesQuery(
   const rol = profileRol(profile);
   const contractor = String(profile?.contratista ?? '').trim();
   const selectedContractor = String(filters.contratista ?? '').trim();
-  const effectiveContractor = selectedContractor || contractor;
 
-  // Reducción de costos: asesor/supervisor consultan solo su contratista.
+  // Asesor/supervisor: Firestore exige que el `where(contratista)` coincida con
+  // users/{uid}.contratista. No usar el valor del filtro del UI (puede ser otro).
   if (rol === 'asesor' || rol === 'supervisor') {
-    if (effectiveContractor) {
-      constraints.push(where('contratista', '==', effectiveContractor));
+    if (contractor) {
+      constraints.push(where('contratista', '==', contractor));
     } else {
-      // Evita lecturas amplias si el perfil no tiene contratista asignado.
       constraints.push(where('contratista', '==', '__UNASSIGNED__'));
     }
   }
@@ -301,19 +301,43 @@ export async function fetchQueryPage(q) {
 }
 
 /**
- * @param {{ rol?: string, contratista?: string|null } | null | undefined} profile
+ * @param {{
+ *   rol?: string,
+ *   contratista?: string|null,
+ *   metricasDocId?: string|null,
+ * } | null | undefined} profile
  */
 export async function getDashboardMetrics(profile) {
   const rol = profileRol(profile);
   const contractor = String(profile?.contratista ?? '').trim();
+  const docFromProfile = String(profile?.metricasDocId ?? '').trim();
 
-  // Una sola lectura del documento agregado (Cloud Function syncSotMetrics).
-  const metricDocId =
-    rol === 'supervisor' && contractor
-      ? `contratista_${contractor.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`
-      : 'global';
+  // Reglas: asesor/supervisor solo leen metricas/{metricasDocId del perfil}.
+  let metricDocId = 'global';
+  if (rol === 'admin') {
+    metricDocId = 'global';
+  } else if (rol === 'supervisor' || rol === 'asesor') {
+    metricDocId =
+      docFromProfile ||
+      metricasDocIdForContractor(contractor) ||
+      'global';
+  }
   const metricRef = doc(db, 'metricas', metricDocId);
-  const metricSnap = await getDoc(metricRef);
+  let metricSnap;
+  try {
+    metricSnap = await getDoc(metricRef);
+  } catch (e) {
+    if (e?.code === 'permission-denied') {
+      return {
+        total: 0,
+        gestionadas: 0,
+        confirmadoHoy: 0,
+        confirmadoFuturo: 0,
+        rechazos: 0,
+      };
+    }
+    throw e;
+  }
   if (!metricSnap.exists()) {
     return {
       total: 0,
